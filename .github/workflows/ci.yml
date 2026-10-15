@@ -29,7 +29,11 @@ jobs:
         run: swift build
 
       - name: Unit tests
-        run: swift test
+        run: |
+          swift test 2>&1 | tee "$RUNNER_TEMP/test.log"
+          # Surface the result as annotations (readable through the API without log access).
+          grep -E "Executed [0-9]+ tests" "$RUNNER_TEMP/test.log" | tail -1 | sed 's/^/::notice title=Unit tests::/'
+          grep -iE "skipped|warning:" "$RUNNER_TEMP/test.log" | sort -u | head -8 | sed 's/^/::warning title=Tests::/' || true
 
       - name: End-to-end conversion with Apple's Dictionary Development Kit
         run: |
@@ -41,7 +45,8 @@ jobs:
           printf '.entry{color:#333}\nEN{display:block}\n' > "$RUNNER_TEMP/e2e/basic.css"
           "$BIN/dictbridge" info "$RUNNER_TEMP/e2e/basic.mdx"
           "$BIN/dictbridge" convert "$RUNNER_TEMP/e2e/basic.mdx" --name "DictBridge CI" \
-              --no-install --output "$RUNNER_TEMP/e2e" --keep-work
+              --no-install --output "$RUNNER_TEMP/e2e" --keep-work 2>&1 | tee "$RUNNER_TEMP/e2e.log"
+          grep -E "✓|cross-references|Saved|warning" "$RUNNER_TEMP/e2e.log" | head -6 | sed 's/^ */::notice title=End-to-end::/'
           D="$RUNNER_TEMP/e2e/basic.dictionary"
           test -s "$D/Contents/Resources/Body.data"
           test -s "$D/Contents/Resources/KeyText.index"
@@ -53,6 +58,8 @@ jobs:
           XML="$(ls -t "$HOME"/Library/Caches/DictBridge/build-*/dict.xml | head -1)"
           xmllint --noout "$XML"
           echo "--- dict.xml"; head -c 4000 "$XML"
+          # Show one converted entry as an annotation (first 900 characters).
+          grep -m1 'd:title="apple"' "$XML" | cut -c1-900 | sed 's/^/::notice title=apple entry::/'
 
       - name: Package DictBridge.app
         run: scripts/build-app.sh
