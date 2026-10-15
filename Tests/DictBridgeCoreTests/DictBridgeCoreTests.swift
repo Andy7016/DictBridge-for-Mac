@@ -173,7 +173,7 @@ final class HTMLTransformerTests: XCTestCase {
         XCTAssertFalse(marked("<span onclick=\"play()\">Apple</span>"))
         XCTAssertFalse(marked("<img src=\"a.jpg\" onclick=\"zoom(this)\">"))
         XCTAssertFalse(marked("<a href=\"entry://banana\">banana</a>"))
-        XCTAssertFalse(marked("<span onclick=\"x()\">Menu</span>", "apple", transformer(markControls: false)))
+        XCTAssertFalse(marked("<span onclick=\"x()\">Menu</span>", headword: "apple", transformer(markControls: false)))
     }
 
     func testInlineScriptKeptAsCDATA() {
