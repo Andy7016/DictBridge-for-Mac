@@ -6,6 +6,9 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+  # Publishing a release on GitHub builds the app and attaches the .dmg/.zip to it.
+  release:
+    types: [published]
 
 permissions:
   contents: write
@@ -62,7 +65,10 @@ jobs:
           grep -m1 'd:title="apple"' "$XML" | cut -c1-900 | sed 's/^/::notice title=apple entry::/'
 
       - name: Package DictBridge.app
-        run: scripts/build-app.sh
+        run: |
+          # Release builds take their version from the tag (v0.2.0 -> 0.2.0).
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then export VERSION="${GITHUB_REF_NAME#v}"; fi
+          scripts/build-app.sh
 
       - name: Smoke-test the packaged CLI
         run: dist/DictBridge.app/Contents/Resources/dictbridge --version
@@ -74,12 +80,12 @@ jobs:
             dist/*.zip
             dist/*.dmg
 
-      - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Attach to release
+        if: github.event_name == 'release' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/*.zip
             dist/*.dmg
-          generate_release_notes: true
+          generate_release_notes: ${{ github.event_name != 'release' }}
           prerelease: ${{ contains(github.ref_name, '-') }}
