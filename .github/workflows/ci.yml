@@ -33,10 +33,17 @@ jobs:
 
       - name: Unit tests
         run: |
+          # `run` steps use `bash -e` without pipefail, so take swift test's status explicitly:
+          # a failing (or non-compiling) test target must fail the build.
+          set +e
           swift test 2>&1 | tee "$RUNNER_TEMP/test.log"
+          status=${PIPESTATUS[0]}
+          set -e
           # Surface the result as annotations (readable through the API without log access).
-          grep -E "Executed [0-9]+ tests" "$RUNNER_TEMP/test.log" | tail -1 | sed 's/^/::notice title=Unit tests::/'
-          grep -iE "skipped|warning:" "$RUNNER_TEMP/test.log" | sort -u | head -8 | sed 's/^/::warning title=Tests::/' || true
+          grep -E "Executed [0-9]+ tests" "$RUNNER_TEMP/test.log" | tail -1 | sed 's/^/::notice title=Unit tests::/' || true
+          grep -E "error:|: error|failed \\(" "$RUNNER_TEMP/test.log" | sort -u | head -20 | sed 's/^/::error title=Unit tests::/' || true
+          grep -iE "skipped" "$RUNNER_TEMP/test.log" | sort -u | head -8 | sed 's/^/::warning title=Tests::/' || true
+          exit "$status"
 
       - name: End-to-end conversion with Apple's Dictionary Development Kit
         run: |
