@@ -61,8 +61,6 @@ DictBridge 负责格式转换。把 `.mdx` 拖进窗口，它会读出词条、�
 
 系统要求：macOS 13 Ventura 或更新版本，Apple 芯片和 Intel 芯片的 Mac 都可以用。
 
-想试最新的开发版？打开 [Actions](../../actions/workflows/ci.yml)，点最近一次成功的运行，在页面底部的 Artifacts 里下载「DictBridge」。下载需要登录 GitHub。
-
 ## 使用
 
 1. 打开 DictBridge，把 `.mdx` 文件（或包含它的文件夹）拖进窗口，也可以点「添加词典…」选择文件。
