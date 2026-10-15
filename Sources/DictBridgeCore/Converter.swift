@@ -80,8 +80,42 @@ public final class Converter: @unchecked Sendable {
     static let reservedNames: Set<String> = [
         "body.data", "defaultstyle.css", "keytext.index", "keytext.data", "entryid.index", "entryid.data", "info.plist",
     ]
-    /// Inline at most this much JavaScript into each entry that needs it.
-    static let maxSharedScript = 256 * 1024
+    /// Picks the style sheets the dictionary actually uses: the ones its entries link to, plus
+    /// `<name>.css` (which GoldenDict loads automatically). Other sheets in the `.mdd` are often
+    /// alternatives (`*_large.css`, `*_switch.css`) that would override the real one if merged.
+    /// If none of those exist, the style sheets placed next to the `.mdx` are used.
+    static func chooseStylesheets(_ names: [String], referenced: Set<String>, baseName: String,
+                                  folderNames: [String]) -> [String] {
+        let refKeys = Set(referenced.filter(ResourcePath.isLocal).map { ResourcePath.key($0) })
+        let refFiles = Set(refKeys.map { ($0 as NSString).lastPathComponent })
+        let base = (baseName + ".css").lowercased()
+        var chosen = names.filter { name in
+            let key = ResourcePath.key(name)
+            let file = (key as NSString).lastPathComponent
+            return refKeys.contains(key) || refFiles.contains(file) || file == base
+        }
+        if chosen.isEmpty {
+            let folder = Set(folderNames.map { $0.lowercased() })
+            chosen = names.filter { !$0.contains("/") && folder.contains($0.lowercased()) }
+        }
+        return chosen
+    }
+
+    /// Regular files next to the `.mdx` (other than the MDict files), keyed by lower-cased name.
+    static func filesNextTo(_ source: SourceDictionary) -> [String: URL] {
+        let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey]
+        guard let items = try? FileManager.default.contentsOfDirectory(
+            at: source.folder, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles]) else { return [:] }
+        var map: [String: URL] = [:]
+        for url in items {
+            let ext = url.pathExtension.lowercased()
+            guard ext != "mdx", ext != "mdd",
+                  let values = try? url.resourceValues(forKeys: Set(keys)), values.isRegularFile == true,
+                  (values.fileSize ?? 0) < 50 << 20 else { continue }
+            map[url.lastPathComponent.lowercased()] = url
+        }
+        return map
+    }
 
     public init(source: SourceDictionary, options: ConversionOptions, toolkit: DDKToolkit) {
         self.source = source
@@ -184,7 +218,7 @@ public final class Converter: @unchecked Sendable {
         var written = Set<String>()
         var createdDirs = Set<String>()
         var stylesheets: [(String, String)] = []  // (name, css)
-        var scripts: [(String, String)] = []
+        var scriptCount = 0
         var resourceCount = 0
         var skippedAudio = 0
 
@@ -206,7 +240,7 @@ public final class Converter: @unchecked Sendable {
             guard written.insert(lower).inserted else { return }
             let ext = (path as NSString).pathExtension.lowercased()
             if ext == "css" { stylesheets.append((path, decodeText(data))) }
-            if ext == "js" { scripts.append((path, decodeText(data))) }
+            if ext == "js" { scriptCount += 1 }
             if !options.includeAudio && Self.audioExtensions.contains(ext) { skippedAudio += 1; return }
             if components.count == 1 && Self.reservedNames.contains(lower) {
                 warn("skipped resource \(path) (name reserved by the dictionary bundle)")
@@ -222,6 +256,12 @@ public final class Converter: @unchecked Sendable {
             resourceCount += 1
         }
 
+        // Files next to the .mdx win over same-named files inside the .mdd (as in MDict and
+        // GoldenDict, where people drop an updated style sheet next to the dictionary), so
+        // they are stored first.
+        for url in source.stylesheets + source.scripts + source.looseResources {
+            if let data = try? Data(contentsOf: url) { try store(url.lastPathComponent, data) }
+        }
         for (n, mddURL) in source.mdds.enumerated() {
             let mdd = try MDictFile(url: mddURL)
             log("\(mddURL.lastPathComponent): \(mdd.entryCount) resources")
@@ -239,18 +279,8 @@ public final class Converter: @unchecked Sendable {
             if let failure { throw failure }
             try checkCancelled()
         }
-        // Files next to the .mdx override nothing already taken from the .mdd.
-        for url in source.stylesheets + source.scripts + source.looseResources {
-            if let data = try? Data(contentsOf: url) { try store(url.lastPathComponent, data) }
-        }
         if skippedAudio > 0 { log("left out \(skippedAudio) audio files (audio disabled)") }
-        log("\(resourceCount) resource files, \(stylesheets.count) style sheets, \(scripts.count) scripts")
-
-        var sharedScript = scripts.map { "/* \($0.0) */\n" + $0.1 }.joined(separator: "\n;\n")
-        if sharedScript.utf8.count > Self.maxSharedScript {
-            warn("dictionary scripts are \(sharedScript.utf8.count / 1024) KB; too large to inline, interactive features may not work")
-            sharedScript = ""
-        }
+        log("\(resourceCount) resource files, \(stylesheets.count) style sheets, \(scriptCount) scripts")
 
         // 3. Entries ---------------------------------------------------------------------
         report(.converting, 0.20, "")
@@ -258,12 +288,14 @@ public final class Converter: @unchecked Sendable {
         let writer = try DDKSourceWriter(url: xmlURL)
         let transformer = HTMLTransformer(
             resolver: resolver,
-            context: .init(bundleIdentifier: bundleIdentifier, headwordMode: options.headwordMode, sharedScript: sharedScript))
+            context: .init(bundleIdentifier: bundleIdentifier, headwordMode: options.headwordMode))
 
         writer.writeFrontMatter(body: frontMatter(mdx: mdx, transformer: transformer))
 
         var inlineStyles: [String] = []
         var seenStyles = Set<String>()
+        var stylesheetRefs = Set<String>()
+        var scriptRefs = Set<String>()
         var stats = (audio: 0, cross: 0, unresolved: 0, keys: 0)
         var batch: [(index: Int, key: String, record: Data)] = []
         var batchBytes = 0
@@ -306,6 +338,8 @@ public final class Converter: @unchecked Sendable {
                 for style in r.inlineStyles where seenStyles.insert(style).inserted {
                     inlineStyles.append(style)
                 }
+                stylesheetRefs.formUnion(r.stylesheetRefs)
+                scriptRefs.formUnion(r.scriptRefs)
             }
             batch.removeAll(keepingCapacity: true)
             batchBytes = 0
@@ -329,10 +363,37 @@ public final class Converter: @unchecked Sendable {
         try writer.finish()
         log("wrote \(writer.entriesWritten) entries (\(writer.bytesWritten / 1_048_576) MB of XHTML)")
 
+        // Files the entries load that were not in the .mdd: look for them next to the .mdx
+        // (for example a script config such as `oalecd8e.ini`).
+        let folderFiles = Self.filesNextTo(source)
+        var missing: [String] = []
+        for ref in stylesheetRefs.union(scriptRefs).sorted() where ResourcePath.isLocal(ref) {
+            let path = ResourcePath.normalize(ref)
+            let decoded = path.removingPercentEncoding ?? path
+            if written.contains(path.lowercased()) || written.contains(decoded.lowercased()) { continue }
+            if let url = folderFiles[(decoded as NSString).lastPathComponent.lowercased()],
+               let data = try? Data(contentsOf: url) {
+                try store(decoded, data)
+                log("added \(decoded) from the dictionary folder")
+            } else {
+                missing.append(decoded)
+            }
+        }
+        if !missing.isEmpty {
+            log("entries refer to files that are neither in the .mdd nor in the folder: "
+                + missing.prefix(8).joined(separator: ", "))
+        }
+
         // 4. Style sheet and Info.plist ------------------------------------------------------
+        let chosen = Self.chooseStylesheets(stylesheets.map { $0.0 }, referenced: stylesheetRefs,
+                                            baseName: source.baseName,
+                                            folderNames: source.stylesheets.map(\.lastPathComponent))
+        let leftOut = stylesheets.map { $0.0 }.filter { !chosen.contains($0) }
+        log("style sheets: " + (chosen.isEmpty ? "none" : chosen.joined(separator: ", "))
+            + (leftOut.isEmpty ? "" : " (not used by any entry: " + leftOut.joined(separator: ", ") + ")"))
         var css = ""
         var seenCSS = Set<String>()
-        for (name, text) in stylesheets where seenCSS.insert(text).inserted {
+        for (name, text) in stylesheets where chosen.contains(name) && seenCSS.insert(text).inserted {
             css += "/* \(name) */\n" + CSSProcessor.process(text) + "\n"
         }
         for style in inlineStyles where seenCSS.insert(style).inserted {
@@ -356,11 +417,17 @@ public final class Converter: @unchecked Sendable {
         report(.compiling, 0.45, "")
         let runner = ProcessRunner()
         lock.lock(); self.runner = runner; lock.unlock()
-        let built = try toolkit.build(
-            name: bundleName, workDirectory: workDir, xml: "dict.xml", css: "dict.css", plist: "dict.plist",
-            runner: runner,
-            progress: { f in report(.compiling, 0.45 + 0.52 * f, "") },
-            log: log)
+        let built: URL
+        do {
+            built = try toolkit.build(
+                name: bundleName, workDirectory: workDir, xml: "dict.xml", css: "dict.css", plist: "dict.plist",
+                runner: runner,
+                progress: { f in report(.compiling, 0.45 + 0.52 * f, "") },
+                log: log)
+        } catch {
+            if error is CancellationError || isCancelled { throw ConversionError.cancelled }
+            throw error
+        }
         try checkCancelled()
 
         // 6. Install / deliver -------------------------------------------------------------

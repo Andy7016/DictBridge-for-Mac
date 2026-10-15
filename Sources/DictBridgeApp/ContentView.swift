@@ -145,7 +145,7 @@ struct DictionaryRow: View {
             Button {
                 model.reveal(dictionary)
             } label: {
-                Image(systemName: "magnifyingglass")
+                Image(systemName: "folder")
             }
             .buttonStyle(.borderless)
             .help(L.showInFinder)

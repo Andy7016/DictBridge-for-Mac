@@ -38,8 +38,10 @@ DictBridge 负责格式转换。把 `.mdx` 拖进窗口，它会读出词条、�
   - 重新导入同一部词典时，会替换掉旧版本，旧版移到废纸篓。
 - **针对「词典」App 做了适配**（详见 [docs/how-it-works.md](docs/how-it-works.md)）：
   - 修复了词与词之间空格丢失的问题。
-  - 展开按钮（例句、搭配、词源等）可以正常点击。
-  - 发音按钮可以播放。
+  - 展开按钮（例句、搭配、词源等）可以正常点击，发音按钮可以播放。
+  - 重按弹出的查询窗口只显示每部词典的开头几行，而且点不动。DictBridge 会在这个窗口里隐藏按钮、菜单和发音图标，让释义排到最前面。
+  - 只使用词条实际引用的样式表，避免词典自带的几套备选样式互相覆盖。
+  - 词典脚本只保存一份，所有词条共用，大型词典转换后不会因此变大。
 - **词典管理**：列出 `~/Library/Dictionaries` 里的所有词典。删除时移到废纸篓，之后还能恢复。
 - **格式支持**：
   - MDict 1.2 和 2.0
@@ -146,10 +148,9 @@ DictBridge 会自动启用新词典并重启「词典」App。如果还是没看
 - 不支持 MDict 3.0 新格式。
 - 需要注册码才能打开的词典（`Encrypted="1"`）只能尽力读取，不保证成功。
 - `.mdd` 文件要和 `.mdx` 同名（`name.mdd`、`name.1.mdd`……）才会被识别。
-- 文件夹里和 `.mdd` 里的所有 `.css` 会合并使用。有些词典附带多套可切换的样式（例如 `*_switch.css`、`*_large.css`），合并后可能互相覆盖。排版不对时，可以先把不用的样式文件移出文件夹再转换。
-- 词典脚本会内嵌到每个用到它的词条里。带 jQuery 这类大脚本的大型词典，转换后体积会明显变大，编译也更慢。脚本合计超过 256 KB 时不会内嵌，相关的交互功能用不了。
+- 样式表只用词条里引用的那几个，外加和词典同名的 `.css`；都没有时，才用 `.mdx` 旁边的 `.css`。词典文件夹里的文件优先于 `.mdd` 里的同名文件，所以想换样式，把改好的 `.css` 放在 `.mdx` 旁边就行。
 - `.spx`（Speex）格式的发音，「词典」App 无法播放。
-- 在重按（或三指轻点）弹出的查询窗口里，点击展开按钮和播放发音可能不起作用；在「词典」App 的窗口里可以正常使用。
+- 在重按（或三指轻点）弹出的查询窗口里，每部词典只显示开头几行，点击展开和播放发音都不起作用。这是「词典」App 本身的限制。点窗口里的「更多」，可以在「词典」App 里看完整内容，那里一切正常。
 
 ## 从源码构建
 
@@ -158,6 +159,7 @@ git clone https://github.com/Andy7016/DictBridge-for-Mac.git && cd DictBridge-fo
 swift build && swift test          # 需要 Xcode 15 或更新版本（Swift 5.9+）
 swift run DictBridgeApp            # 直接运行 App
 scripts/build-app.sh               # 生成 dist/DictBridge.app、.zip 和 .dmg
+scripts/compat-test.sh ~/词典库     # 把文件夹里的词典逐个转换（不安装），输出一张兼容性结果表
 ```
 
 | 目录 | 内容 |
@@ -190,7 +192,8 @@ But it only reads Apple's `.dictionary` bundles, not the MDict dictionaries most
 - Finds what MDict users expect: syllable-dotted headwords (`ap·ple`) are found as *apple*, and Chinese headwords are found in both Simplified and Traditional script.
 - Detects dictionaries that declare GBK or Big5 but actually contain UTF-8.
 - Enables new dictionaries in Dictionary automatically and replaces an older version of the same dictionary.
-- Handles Dictionary.app quirks: lost spaces, clickable expanders, playable audio. See [docs/how-it-works.md](docs/how-it-works.md).
+- Handles Dictionary.app quirks: lost spaces, clickable expanders, playable audio. In the force-click popover, which shows only the start of each entry and ignores clicks, buttons and speaker icons are hidden so the definition comes first. See [docs/how-it-works.md](docs/how-it-works.md).
+- Uses only the style sheets the entries link to, and keeps one shared copy of each script.
 - Supports MDict 1.2/2.0; UTF-8, UTF-16, GBK and Big5 encodings; zlib and LZO compression; encrypted key index (`Encrypted="2"`).
 - Includes a `dictbridge` command-line tool (`DictBridge.app/Contents/Resources/dictbridge`; run `dictbridge help`).
 
@@ -200,7 +203,7 @@ The first conversion asks to download Apple's Dictionary Development Kit (about 
 
 Requires macOS 13 or later, on Apple silicon or Intel.
 
-**Known limitations.** No MDict 3.0. Dictionaries that need a registration key (`Encrypted="1"`) are read on a best-effort basis. `.mdd` files must share the `.mdx` file's name. All style sheets are merged, so dictionaries that ship alternative styles may need the unused ones moved out of the folder. Scripts are inlined into every entry that uses them, which makes dictionaries with large scripts (such as jQuery) noticeably bigger; scripts over 256 KB in total are left out. `.spx` audio does not play.
+**Known limitations.** No MDict 3.0. Dictionaries that need a registration key (`Encrypted="1"`) are read on a best-effort basis. `.mdd` files must share the `.mdx` file's name. Files next to the `.mdx` override same-named files in the `.mdd`. In the popover, clicks (expanders, audio) do nothing; use *More* to open the full entry. `.spx` audio does not play.
 
 **Build.** Run `swift build && swift test`, then `scripts/build-app.sh` to produce `dist/DictBridge.app`.
 

@@ -19,12 +19,13 @@ public struct HTMLTransformer {
     public struct Context: Sendable {
         public var bundleIdentifier: String
         public var headwordMode: HeadwordMode
-        /// JavaScript to inline in entries that use scripts (empty = none).
-        public var sharedScript: String
-        public init(bundleIdentifier: String, headwordMode: HeadwordMode = .auto, sharedScript: String = "") {
+        /// Mark small click-only elements (buttons, tabs, speaker icons) with `dictbridge-control`
+        /// so the look-up popover, where clicks do nothing, can hide them.
+        public var markControls: Bool
+        public init(bundleIdentifier: String, headwordMode: HeadwordMode = .auto, markControls: Bool = true) {
             self.bundleIdentifier = bundleIdentifier
             self.headwordMode = headwordMode
-            self.sharedScript = sharedScript
+            self.markControls = markControls
         }
     }
 
@@ -69,6 +70,7 @@ public struct HTMLTransformer {
             }
         }
         var state = State()
+        state.headwordKey = LinkResolver.normalize(headword)
         var out = ""
 
         guard let doc else {
@@ -103,11 +105,13 @@ public struct HTMLTransformer {
         }
 
         out += "<div class=\"dictbridge-entry\">"
-        if !context.sharedScript.isEmpty && (state.usesScript || !state.scriptRefs.isEmpty) {
-            // Inline: Dictionary.app runs inline scripts; external <script src> is not guaranteed.
-            out += "<script type=\"text/javascript\">/*<![CDATA[*/\n"
-            out += context.sharedScript.replacingOccurrences(of: "]]>", with: "]]]]><![CDATA[>")
-            out += "\n/*]]>*/</script>"
+        // Scripts from the entry's <head>, in order. Dictionary.app (window and popover) loads
+        // <script src> from the bundle, so every entry shares one copy of each file.
+        for script in state.headScripts {
+            switch script {
+            case .file(let path): Self.emitScript(src: path, into: &out)
+            case .code(let code): Self.emitScript(code: code, into: &out)
+            }
         }
         out += inner
         out += "</div>"
@@ -124,14 +128,45 @@ public struct HTMLTransformer {
 
     // MARK: - Tree walk
 
+    private enum HeadScript {
+        case file(String)
+        case code(String)
+    }
+
     private struct State {
         var stylesheetRefs = Set<String>()
         var scriptRefs = Set<String>()
+        var headScripts: [HeadScript] = []
         var inlineStyles: [String] = []
-        var usesScript = false
+        var headwordKey = ""
         var audioLinks = 0
         var crossLinks = 0
         var unresolvedLinks = 0
+    }
+
+    static func emitScript(src: String, into out: inout String) {
+        out += "<script type=\"text/javascript\" src=\""
+        escapeAttribute(src, into: &out)
+        out += "\"></script>"
+    }
+
+    static func emitScript(code: String, into out: inout String) {
+        out += "<script type=\"text/javascript\">/*<![CDATA[*/\n"
+        out += code.replacingOccurrences(of: "]]>", with: "]]]]><![CDATA[>")
+        out += "\n/*]]>*/</script>"
+    }
+
+    /// Characters that mark text as phonetics, which stays visible even inside a sound link.
+    static let phoneticScalars: Set<Unicode.Scalar> = Set("ˈˌːəɪʊæʌɔɒɜθðʃʒŋɑɛɐɚɝʔ".unicodeScalars)
+
+    /// Small click-only elements: tabs, menu buttons, speaker icons. Longer content (examples that
+    /// expand on click), phonetics and the headword itself are never treated as controls.
+    private func looksLikeControl(_ node: xmlNodePtr, headwordKey: String) -> Bool {
+        let text = Self.textContent(of: node).trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.count > 24 { return false }
+        if text.contains("/") || text.unicodeScalars.contains(where: { Self.phoneticScalars.contains($0) }) { return false }
+        if !headwordKey.isEmpty && !text.isEmpty && LinkResolver.normalize(text).contains(headwordKey) { return false }
+        return true
     }
 
     static let voidElements: Set<String> = [
@@ -205,7 +240,11 @@ public struct HTMLTransformer {
                 case "style": state.inlineStyles.append(Self.textContent(of: c))
                 case "script":
                     if let src = Self.attributes(of: c).first(where: { $0.0 == "src" })?.1, !src.isEmpty {
-                        state.scriptRefs.insert(ResourcePath.normalize(src))
+                        let path = ResourcePath.normalize(src)
+                        if state.scriptRefs.insert(path).inserted { state.headScripts.append(.file(path)) }
+                    } else {
+                        let code = Self.textContent(of: c)
+                        if !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { state.headScripts.append(.code(code)) }
                     }
                 default: break
                 }
@@ -297,15 +336,15 @@ public struct HTMLTransformer {
         case "script":
             let attrs = Self.attributes(of: node)
             if let src = attrs.first(where: { $0.0 == "src" })?.1, !src.isEmpty {
-                state.scriptRefs.insert(ResourcePath.normalize(src))
+                // Kept in place: the file is in the bundle and shared by all entries.
+                let path = ResourcePath.normalize(src)
+                state.scriptRefs.insert(path)
+                Self.emitScript(src: path, into: &out)
                 return
             }
             let code = Self.textContent(of: node)
             guard !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-            state.usesScript = true
-            out += "<script type=\"text/javascript\">/*<![CDATA[*/\n"
-            out += code.replacingOccurrences(of: "]]>", with: "]]]]><![CDATA[>")
-            out += "\n/*]]>*/</script>"
+            Self.emitScript(code: code, into: &out)
             return
         case "style":
             state.inlineStyles.append(Self.textContent(of: node))
@@ -350,11 +389,29 @@ public struct HTMLTransformer {
         // handler instead of looking up the clicked word.
         let hasHandler = attrs.contains { Self.eventAttributes.contains($0.0) }
         if hasHandler {
-            state.usesScript = true
             if name != "a" && !Self.voidElements.contains(name) && !insideLink
                 && !Self.subtreeContains(node, element: "a") {
                 wrapInClickLink = true
                 childInsideLink = true
+            }
+        }
+
+        // Click-only controls get a class the popover style hides (clicks do nothing there).
+        if context.markControls {
+            let clickOnly: Bool
+            if name == "a" {
+                let href = attrs.first(where: { $0.0 == "href" })?.1.lowercased() ?? ""
+                clickOnly = href.hasPrefix("javascript:") || (href.isEmpty && hasHandler)
+            } else {
+                clickOnly = hasHandler
+            }
+            // Pictures stay: an image that enlarges on click is still content.
+            if clickOnly && !Self.voidElements.contains(name) && looksLikeControl(node, headwordKey: state.headwordKey) {
+                if let i = attrs.firstIndex(where: { $0.0 == "class" }) {
+                    attrs[i].1 = attrs[i].1.isEmpty ? "dictbridge-control" : attrs[i].1 + " dictbridge-control"
+                } else {
+                    attrs.append(("class", "dictbridge-control"))
+                }
             }
         }
 
@@ -409,7 +466,6 @@ public struct HTMLTransformer {
             addClass("dictbridge-sound")
             prependClick("new Audio('\(Self.jsString(path))').play();")
             state.audioLinks += 1
-            state.usesScript = true
         } else if lower.hasPrefix("entry://") || lower.hasPrefix("bword://") {
             let target = String(href.dropFirst(8))
             let decoded = target.removingPercentEncoding ?? target
@@ -419,7 +475,6 @@ public struct HTMLTransformer {
             if word.isEmpty {
                 setHref(Self.jsVoid)
                 prependClick(Self.scrollScript(fragment))
-                state.usesScript = true
             } else if let ids = resolver?.resolve(word), let first = ids.first {
                 setHref("x-dictionary:r:\(DDKSourceWriter.entryID(first)):\(context.bundleIdentifier)")
                 state.crossLinks += 1
@@ -430,7 +485,6 @@ public struct HTMLTransformer {
         } else if href.hasPrefix("#") {
             setHref(Self.jsVoid)
             prependClick(Self.scrollScript(String(href.dropFirst())))
-            state.usesScript = true
         } else if lower.hasPrefix("file://") {
             setHref(ResourcePath.normalize(href))
         } else {
@@ -525,6 +579,13 @@ public enum ResourcePath {
         while p.hasPrefix("/") { p.removeFirst() }
         while p.hasPrefix("./") { p.removeFirst(2) }
         return p
+    }
+
+    /// False for web, data and script URLs, which are not files in the dictionary.
+    public static func isLocal(_ raw: String) -> Bool {
+        let lower = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !lower.isEmpty else { return false }
+        return !["data:", "http:", "https:", "javascript:", "x-dictionary:", "#", "//", "mailto:"].contains { lower.hasPrefix($0) }
     }
 
     /// Normalised key used to match references against extracted files (case-insensitive).

@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// Runs a command, streaming its combined stdout/stderr line by line.
@@ -11,11 +12,37 @@ final class ProcessRunner: @unchecked Sendable {
         return cancelled
     }
 
+    /// Stops the command and everything it started. `build_dict.sh` runs perl and Apple's
+    /// helpers as child processes, which would otherwise keep running after the shell exits.
     func cancel() {
         lock.lock()
         cancelled = true
         lock.unlock()
-        if process.isRunning { process.terminate() }
+        guard process.isRunning else { return }
+        // List the descendants first: once the shell is gone they are re-parented to launchd.
+        let descendants = Self.descendants(of: process.processIdentifier)
+        process.terminate()
+        for pid in descendants.reversed() { kill(pid, SIGTERM) }
+    }
+
+    /// All processes started (directly or indirectly) by `root`.
+    static func descendants(of root: pid_t) -> [pid_t] {
+        var result: [pid_t] = []
+        var queue: [pid_t] = [root]
+        while !queue.isEmpty {
+            let parent = queue.removeFirst()
+            var buffer = [pid_t](repeating: 0, count: 512)
+            let count = buffer.withUnsafeMutableBytes { raw -> Int32 in
+                proc_listchildpids(parent, raw.baseAddress, Int32(raw.count))
+            }
+            guard count > 0 else { continue }
+            let children = buffer.prefix(min(Int(count), buffer.count)).filter { $0 > 0 && $0 != root }
+            for child in children where !result.contains(child) {
+                result.append(child)
+                queue.append(child)
+            }
+        }
+        return result
     }
 
     /// Accumulates output and splits it into lines (accessed on one serial queue).

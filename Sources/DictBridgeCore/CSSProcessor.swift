@@ -14,6 +14,9 @@ public enum CSSProcessor {
     a.dictbridge-click { color: inherit; text-decoration: inherit; cursor: pointer; }
     a.dictbridge-sound { cursor: pointer; }
     .dictbridge-headword { font-size: 150%; font-weight: bold; margin: 0 0 0.4em 0; }
+    /* The look-up popover (force click) shows only the start of each entry and ignores clicks,
+       so click-only buttons, tabs and speaker icons are hidden there to bring the definition up. */
+    html.apple_client-panel .dictbridge-control { display: none !important; }
     """
 
     public static func process(_ css: String) -> String {

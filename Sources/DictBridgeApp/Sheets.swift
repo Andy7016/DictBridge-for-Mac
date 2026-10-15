@@ -31,9 +31,12 @@ struct ImportSheet: View {
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.08)))
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Toggle(L.includeAudio, isOn: $request.includeAudio)
-                Text(L.includeAudioHint).font(.caption).foregroundStyle(.secondary)
+            // Audio comes from the .mdd files; without them there is nothing to choose.
+            if !request.source.mdds.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(L.includeAudio, isOn: $request.includeAudio)
+                    Text(L.includeAudioHint).font(.caption).foregroundStyle(.secondary)
+                }
             }
 
             DisclosureGroup(L.advanced, isExpanded: $showAdvanced) {

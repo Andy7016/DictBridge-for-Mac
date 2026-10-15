@@ -7,11 +7,11 @@ final class HTMLTransformerTests: XCTestCase {
 
     private func transformer(headwords: [String] = ["apple", "banana", "cherry"],
                              redirects: [(String, String)] = [("Bananas", "banana")],
-                             script: String = "",
-                             headwordMode: HeadwordMode = .never) -> HTMLTransformer {
+                             headwordMode: HeadwordMode = .never,
+                             markControls: Bool = true) -> HTMLTransformer {
         let resolver = LinkResolver(headwords: headwords, redirects: redirects.map { (alias: $0.0, target: $0.1) })
         return HTMLTransformer(resolver: resolver,
-                               context: .init(bundleIdentifier: bundleID, headwordMode: headwordMode, sharedScript: script))
+                               context: .init(bundleIdentifier: bundleID, headwordMode: headwordMode, markControls: markControls))
     }
 
     private func xhtml(_ html: String, headword: String = "apple", _ t: HTMLTransformer? = nil) -> String {
@@ -108,7 +108,7 @@ final class HTMLTransformerTests: XCTestCase {
 
     func testClickableSpanGetsInnerLink() {
         let out = xhtml("<span class=\"btn\" onclick=\"x.toggle(this)\">Examples</span><div class=\"pop\">hidden</div>")
-        XCTAssertTrue(out.contains("<span class=\"btn\" onclick=\"x.toggle(this)\"><a class=\"dictbridge-click\" href=\"javascript:void(0)\">Examples</a></span>"), out)
+        XCTAssertTrue(out.contains("<span class=\"btn dictbridge-control\" onclick=\"x.toggle(this)\"><a class=\"dictbridge-click\" href=\"javascript:void(0)\">Examples</a></span>"), out)
         assertWellFormed(out)
     }
 
@@ -138,16 +138,42 @@ final class HTMLTransformerTests: XCTestCase {
         XCTAssertEqual(r.inlineStyles, [".a{color:red}"])
         XCTAssertFalse(r.xhtml.contains("<link"), r.xhtml)
         XCTAssertFalse(r.xhtml.contains("<style"), r.xhtml)
+        XCTAssertTrue(r.xhtml.contains("<script type=\"text/javascript\" src=\"sample.js\"></script>"), r.xhtml)
     }
 
-    func testSharedScriptInlinedOnlyWhenNeeded() {
-        let t = transformer(script: "var sample={a:1}; if (1 < 2 && true) {}")
-        let withHandler = t.transform(html: "<span onclick=\"sample.a\">x</span>", headword: "apple").xhtml
-        XCTAssertTrue(withHandler.contains("<script type=\"text/javascript\">/*<![CDATA[*/"), withHandler)
-        XCTAssertTrue(withHandler.contains("if (1 < 2 && true)"), withHandler)
-        assertWellFormed(withHandler)
-        let plain = t.transform(html: "<b>plain</b>", headword: "apple").xhtml
-        XCTAssertFalse(plain.contains("<script"), plain)
+    func testScriptFilesAreReferencedNotCopied() {
+        let html = "<html><head><script src=\"/js/jquery.js\"></script><script src=\"\\conf.ini\"></script></head>"
+            + "<body><p>x</p><script src=\"main.js\"></script></body></html>"
+        let r = transformer().transform(html: html, headword: "apple")
+        XCTAssertEqual(r.scriptRefs, ["js/jquery.js", "conf.ini", "main.js"])
+        let jquery = r.xhtml.range(of: "src=\"js/jquery.js\"")
+        let conf = r.xhtml.range(of: "src=\"conf.ini\"")
+        let main = r.xhtml.range(of: "src=\"main.js\"")
+        XCTAssertNotNil(jquery, r.xhtml)
+        XCTAssertNotNil(conf, r.xhtml)
+        XCTAssertNotNil(main, r.xhtml)
+        if let jquery, let conf, let main {
+            XCTAssertTrue(jquery.lowerBound < conf.lowerBound && conf.lowerBound < main.lowerBound, "order: \(r.xhtml)")
+        }
+        XCTAssertFalse(r.xhtml.contains("CDATA"), "nothing is inlined: \(r.xhtml)")
+        assertWellFormed(r.xhtml)
+    }
+
+    func testClickOnlyControlsAreMarked() {
+        func marked(_ html: String, headword: String = "apple", _ t: HTMLTransformer? = nil) -> Bool {
+            xhtml(html, headword: headword, t).contains("dictbridge-control")
+        }
+        XCTAssertTrue(marked("<span class=\"popup-button\" onclick=\"x.show(this)\">Collocations</span>"))
+        XCTAssertTrue(marked("<a href=\"sound://a.mp3\"><img src=\"spk.png\"></a>"))
+        XCTAssertTrue(marked("<a href=\"#phrases\">Phrases</a>"))
+        // Content that expands, phonetics, the headword, pictures and real links stay visible.
+        XCTAssertFalse(marked("<span onclick=\"x.toggle(this)\">► earn £30,000 a year in this job</span>"))
+        XCTAssertFalse(marked("<a href=\"sound://a.mp3\">ˈæpl</a>"))
+        XCTAssertFalse(marked("<a href=\"sound://a.mp3\">/ˈæp.əl/</a>"))
+        XCTAssertFalse(marked("<span onclick=\"play()\">Apple</span>"))
+        XCTAssertFalse(marked("<img src=\"a.jpg\" onclick=\"zoom(this)\">"))
+        XCTAssertFalse(marked("<a href=\"entry://banana\">banana</a>"))
+        XCTAssertFalse(marked("<span onclick=\"x()\">Menu</span>", "apple", transformer(markControls: false)))
     }
 
     func testInlineScriptKeptAsCDATA() {
@@ -260,5 +286,34 @@ final class SearchKeysTests: XCTestCase {
         XCTAssertTrue(ChineseScript.variants(of: "苹果").contains("蘋果"))
         XCTAssertEqual(ChineseScript.variants(of: "apple"), [])
         XCTAssertTrue(SearchKeys.variants(of: "詞典").contains("词典"))
+    }
+}
+
+final class StylesheetChoiceTests: XCTestCase {
+    func testOnlyReferencedSheetsAndBaseNameAreUsed() {
+        let names = ["LM5style.css", "LM5style_switch.css", "css/extra.css", "Dict.css"]
+        let chosen = Converter.chooseStylesheets(names, referenced: ["/LM5style.css", "http://x.org/a.css"],
+                                                 baseName: "dict", folderNames: ["LM5style.css", "LM5style_switch.css"])
+        XCTAssertEqual(chosen, ["LM5style.css", "Dict.css"])
+    }
+
+    func testReferenceMatchesByFileName() {
+        let chosen = Converter.chooseStylesheets(["css/oalecd8e.css"], referenced: ["oalecd8e.css"],
+                                                 baseName: "oald8", folderNames: [])
+        XCTAssertEqual(chosen, ["css/oalecd8e.css"])
+    }
+
+    func testUnreferencedSheetsInsideTheMddAreLeftOut() {
+        // OALD7: two alternative sheets in the .mdd, entries use inline formatting only.
+        let chosen = Converter.chooseStylesheets(["oa_genie_style.css", "oa_genie_style_large.css"], referenced: [],
+                                                 baseName: "OALD7", folderNames: [])
+        XCTAssertEqual(chosen, [])
+    }
+
+    func testFolderSheetsAreTheFallback() {
+        // Entries link to a sheet that does not exist; the one next to the .mdx is used instead.
+        let chosen = Converter.chooseStylesheets(["custom.css", "inner/old.css"], referenced: ["coca.css"],
+                                                 baseName: "COCA", folderNames: ["custom.css"])
+        XCTAssertEqual(chosen, ["custom.css"])
     }
 }
