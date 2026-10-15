@@ -19,6 +19,8 @@ CONVERT OPTIONS
   --no-audio           leave pronunciation audio out of the bundle
   --headword auto|always|never
                        add the headword on top of entries that do not show it (default: auto)
+  --no-chinese-variants
+                       do not add Simplified/Traditional counterparts of Chinese headwords
   --no-install         do not install; save the .dictionary next to the .mdx (or --output)
   --output <folder>    where to save the .dictionary with --no-install
   --keep-work          keep the intermediate build folder (for debugging)
@@ -67,8 +69,15 @@ func blocking<T>(_ operation: @escaping @Sendable () async throws -> T) -> Resul
     return box.value!
 }
 
-func restartDictionaryApp() {
-    _ = blocking { await DictionaryLibrary.restartDictionaryApp(reopen: DictionaryLibrary.isDictionaryAppRunning) }
+/// Restarts Dictionary.app around a change to its list of enabled dictionaries.
+func updateDictionaryApp(enable: URL? = nil, disable: URL? = nil) {
+    let result = blocking {
+        await DictionaryLibrary.updateDictionaryApp {
+            let enabled = enable.flatMap { DictionaryLibrary.describe($0) }.map { [$0] } ?? []
+            return DictionaryLibrary.setEnabled(enabled, disable: disable.map { [$0] } ?? [])
+        }
+    }
+    if case .success(let message) = result, !message.isEmpty { out("  " + message) }
 }
 
 func requireToolkit(downloadIfMissing: Bool) -> DDKToolkit {
@@ -93,6 +102,7 @@ case "convert":
     let noInstall = takeFlag("--no-install")
     let keepWork = takeFlag("--keep-work")
     let noRestart = takeFlag("--no-restart")
+    let noChinese = takeFlag("--no-chinese-variants")
     guard let path = args.first else { fail("convert needs an .mdx file or folder") }
     let source: SourceDictionary
     do { source = try SourceDictionary(url: URL(fileURLWithPath: path)) } catch { fail(error.localizedDescription) }
@@ -101,6 +111,7 @@ case "convert":
     options.includeAudio = !noAudio
     options.install = !noInstall
     options.keepWorkDirectory = keepWork
+    options.chineseVariants = !noChinese
     if let output { options.outputDirectory = URL(fileURLWithPath: output) }
     if let headword {
         guard let mode = HeadwordMode(rawValue: headword) else { fail("--headword must be auto, always or never") }
@@ -138,7 +149,7 @@ case "convert":
         out("  \(report.installed ? "Installed" : "Saved"): \(report.bundleURL.path)")
         for w in report.warnings { out("  warning: \(w)") }
         if report.installed && !noRestart {
-            restartDictionaryApp()
+            updateDictionaryApp(enable: report.bundleURL)
             out("  Open Dictionary.app → Settings to enable or reorder it.")
         }
     } catch {
@@ -166,7 +177,7 @@ case "remove":
     do {
         try DictionaryLibrary.remove(d)
         out("Moved \(d.name) to the Trash.")
-        restartDictionaryApp()
+        updateDictionaryApp(disable: d.url)
     } catch {
         fail(error.localizedDescription)
     }

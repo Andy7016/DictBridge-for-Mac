@@ -29,6 +29,8 @@ public struct ConversionOptions: Sendable {
     /// Copy pronunciation audio from the .mdd (can be most of the size).
     public var includeAudio = true
     public var headwordMode: HeadwordMode = .auto
+    /// Add Simplified/Traditional Chinese counterparts of headwords as search keys.
+    public var chineseVariants = true
     /// Move the result into ~/Library/Dictionaries.
     public var install = true
     /// When not installing: where to put the built `.dictionary`.
@@ -110,8 +112,11 @@ public final class Converter: @unchecked Sendable {
     // MARK: - Run
 
     public func run(progress: @escaping (ConversionProgress) -> Void,
-                    log: @escaping (String) -> Void) throws -> ConversionReport {
+                    log rawLog: @escaping (String) -> Void) throws -> ConversionReport {
         let started = Date()
+        let log: (String) -> Void = { line in
+            rawLog(String(format: "[%6.1fs] ", Date().timeIntervalSince(started)) + line)
+        }
         let fm = FileManager.default
         var warnings: [String] = []
         func report(_ stage: ConversionStage, _ fraction: Double, _ detail: String) {
@@ -133,8 +138,8 @@ public final class Converter: @unchecked Sendable {
         // 1. Index: headwords and @@@LINK redirects -------------------------------------
         report(.indexing, 0, source.mdx.lastPathComponent)
         let mdx = try MDictFile(url: source.mdx)
-        log("MDict engine \(mdx.header.engineVersion), encoding \(mdx.header.encodingName), \(mdx.entryCount) keys")
-        let encoding = MDictFile.stringEncoding(named: mdx.header.encodingName).0
+        log("MDict engine \(mdx.header.engineVersion), encoding \(mdx.effectiveEncodingName), \(mdx.entryCount) keys")
+        let encoding = mdx.encoding
         let linkPrefix = "@@@LINK=".data(using: encoding) ?? Data("@@@LINK=".utf8)
         func isRedirect(_ record: Data) -> Bool { record.starts(with: linkPrefix) }
 
@@ -193,6 +198,10 @@ public final class Converter: @unchecked Sendable {
             let path = ResourcePath.normalize(relPath)
             let components = path.split(separator: "/")
             guard !path.isEmpty, !components.contains(".."), !components.contains(".") else { return }
+            // Finder/Windows clutter that some .mdd files carry along.
+            if components.contains(where: { $0.hasPrefix(".") || $0 == "__MACOSX" }) || path.lowercased().hasSuffix("thumbs.db") {
+                return
+            }
             let lower = path.lowercased()
             guard written.insert(lower).inserted else { return }
             let ext = (path as NSString).pathExtension.lowercased()
@@ -260,10 +269,16 @@ public final class Converter: @unchecked Sendable {
         var batchBytes = 0
         var entryIndex = -1
 
+        struct Prepared {
+            var result: HTMLTransformer.Result
+            var title: String
+            var keys: [String]
+        }
+        let chinese = options.chineseVariants
         func flush() {
             guard !batch.isEmpty else { return }
             let n = batch.count
-            let results = UnsafeMutableBufferPointer<HTMLTransformer.Result?>.allocate(capacity: n)
+            let results = UnsafeMutableBufferPointer<Prepared?>.allocate(capacity: n)
             results.initialize(repeating: nil)
             defer {
                 results.deinitialize()
@@ -272,14 +287,19 @@ public final class Converter: @unchecked Sendable {
             let work = batch
             DispatchQueue.concurrentPerform(iterations: n) { k in
                 let item = work[k]
-                results[k] = transformer.transform(html: mdx.text(of: item.record), headword: item.key)
+                let r = transformer.transform(html: mdx.text(of: item.record), headword: item.key)
+                var keys = [item.key] + (aliases[item.index] ?? [])
+                var extra: [String] = []
+                for key in keys { extra += SearchKeys.variants(of: key, chinese: chinese) }
+                keys += extra
+                results[k] = Prepared(result: r, title: SearchKeys.displayTitle(for: item.key), keys: keys)
             }
             for k in 0..<n {
-                guard let r = results[k] else { continue }
+                guard let p = results[k] else { continue }
                 let item = work[k]
-                let keys = aliases[item.index] ?? []
-                writer.writeEntry(id: DDKSourceWriter.entryID(item.index), title: item.key, searchKeys: keys, body: r.xhtml)
-                stats.keys += 1 + keys.count
+                let r = p.result
+                writer.writeEntry(id: DDKSourceWriter.entryID(item.index), title: p.title, searchKeys: p.keys, body: r.xhtml)
+                stats.keys += Set(p.keys + [p.title]).count
                 stats.audio += r.audioLinks
                 stats.cross += r.crossLinks
                 stats.unresolved += r.unresolvedLinks

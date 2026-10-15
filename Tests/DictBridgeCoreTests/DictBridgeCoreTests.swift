@@ -229,7 +229,36 @@ final class SlugTests: XCTestCase {
     func testSlugs() {
         XCTAssertEqual(Slug.make("LDOCE6++ En-Cn V2-19"), "LDOCE6-En-Cn-V2-19")
         XCTAssertEqual(Slug.make("朗文"), "")
-        XCTAssertTrue(Slug.bundleName(for: "朗文").hasPrefix("Dictionary-"))
-        XCTAssertEqual(Slug.bundleName(for: "朗文"), Slug.bundleName(for: "朗文"))
+        XCTAssertEqual(Slug.bundleName(for: "LDOCE6++ En-Cn V2-19"), "LDOCE6-En-Cn-V2-19")
+        XCTAssertEqual(Slug.bundleName(for: "朗文"), "lang-wen")
+        let c21 = Slug.bundleName(for: "21世纪英汉汉英双向词典")
+        XCTAssertTrue(c21.hasPrefix("21") && c21.hasSuffix("ci-dian"), c21)
+        XCTAssertTrue(Slug.bundleName(for: "ab").hasPrefix("ab-"))
+        XCTAssertTrue(Slug.bundleName(for: "!!").hasPrefix("Dictionary-"))
+    }
+}
+
+final class SearchKeysTests: XCTestCase {
+    func testSyllableMarks() {
+        XCTAssertEqual(SearchKeys.withoutSyllableMarks("ap.ple"), "apple")
+        XCTAssertEqual(SearchKeys.withoutSyllableMarks("beau·ti·ful"), "beautiful")
+        XCTAssertEqual(SearchKeys.withoutSyllableMarks("dic‧tion‧ar‧y"), "dictionary")
+        XCTAssertEqual(SearchKeys.withoutSyllableMarks("ˈapple"), "apple")
+        XCTAssertNil(SearchKeys.withoutSyllableMarks("St. Louis"))
+        XCTAssertNil(SearchKeys.withoutSyllableMarks("apple"))
+        XCTAssertTrue(SearchKeys.isSyllabified("ap.ple"))
+        XCTAssertFalse(SearchKeys.isSyllabified("St. Louis"))
+        XCTAssertFalse(SearchKeys.isSyllabified("e.g."))
+        XCTAssertEqual(SearchKeys.displayTitle(for: "dic.tio.nar.y"), "dictionary")
+        XCTAssertEqual(SearchKeys.displayTitle(for: "e.g."), "e.g.")
+        XCTAssertEqual(SearchKeys.variants(of: "ap.ple", chinese: false), ["apple"])
+    }
+
+    func testChineseVariants() {
+        XCTAssertTrue(ChineseScript.isAvailable, "ICU Simplified/Traditional transforms are missing")
+        XCTAssertTrue(ChineseScript.variants(of: "蘋果").contains("苹果"))
+        XCTAssertTrue(ChineseScript.variants(of: "苹果").contains("蘋果"))
+        XCTAssertEqual(ChineseScript.variants(of: "apple"), [])
+        XCTAssertTrue(SearchKeys.variants(of: "詞典").contains("词典"))
     }
 }

@@ -69,6 +69,15 @@
   },
   "title": "DictBridge Sample"
  },
+ "mislabeled.mdx": {
+  "count": 3,
+  "entries": {
+   "ap.ple": "`1`ap.ple`2`蘋果",
+   "beau.ti.ful": "`1`beau.ti.ful`2`美麗的",
+   "蘋果": "<b>蘋果</b> apple"
+  },
+  "title": "Mislabeled"
+ },
  "multiblock.mdx": {
   "count": 3000,
   "entries": {

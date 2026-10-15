@@ -2,7 +2,7 @@ import Foundation
 
 /// Project-wide constants.
 public enum DictBridge {
-    public static let version = "0.1.0"
+    public static let version = "0.2.0"
     public static let bundleIdentifierPrefix = "org.dictbridge.dict."
 
     /// `~/Library/Application Support/DictBridge`
@@ -50,9 +50,16 @@ public enum Slug {
         return String(h, radix: 16)
     }
 
-    /// File name (without extension) for a dictionary bundle.
+    /// File name (without extension) for a dictionary bundle. Non-Latin names are
+    /// transliterated (`新牛津英汉双解大词典` → `xin-niu-jin-ying-han-shuang-jie-da-ci-dian`).
     public static func bundleName(for source: String) -> String {
-        let s = make(source)
-        return s.isEmpty ? "Dictionary-" + String(hash(source).prefix(8)) : s
+        var latin = source
+        if source.unicodeScalars.contains(where: { $0.value > 0x7F }) {
+            latin = source.applyingTransform(.toLatin, reverse: false)?
+                .applyingTransform(.stripDiacritics, reverse: false) ?? source
+        }
+        let s = make(latin)
+        if s.count >= 3 { return s }
+        return (s.isEmpty ? "Dictionary" : s) + "-" + String(hash(source).prefix(8))
     }
 }

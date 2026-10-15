@@ -43,13 +43,21 @@ public final class MDictFile {
 
     private let data: Data
     private let numberWidth: Int
-    private let textEncoding: String.Encoding
+    private var textEncoding: String.Encoding
     private let isUTF16: Bool
     private var recordSectionOffset = 0
+    /// Keys as raw bytes until the text encoding has been confirmed.
+    private var rawKeys: [(offset: Int, bytes: [UInt8])] = []
+    /// Encoding actually used for keys and records. Some dictionaries declare GBK/Big5
+    /// in the header but store UTF-8; this records what was detected.
+    public private(set) var effectiveEncodingName: String = ""
     /// End offset of each key's record (handles keys that share a record).
     private var recordEnds: [Int] = []
 
     public var entryCount: Int { keys.count }
+
+    /// Encoding used for keys and `.mdx` records (after detection; see `effectiveEncodingName`).
+    public var encoding: String.Encoding { textEncoding }
 
     public init(url: URL) throws {
         let kind: Kind = url.pathExtension.lowercased() == "mdd" ? .mdd : .mdx
@@ -261,7 +269,7 @@ public final class MDictFile {
             let total = infos.reduce(0) { $0 + $1.compressed }
             guard candidate + total <= data.count else { continue }
             let blocks = bytes.subdata(in: (bytes.startIndex + candidate)..<(bytes.startIndex + candidate + total))
-            keys.removeAll()
+            rawKeys.removeAll()
             do {
                 try decodeKeyBlocks(blocks, infos: infos)
             } catch { continue }
@@ -356,13 +364,15 @@ public final class MDictFile {
                     j += 1
                 }
             }
-            let text = decode(Array(b[p..<end])).trimmingCharacters(in: .whitespacesAndNewlines)
-            keys.append(MDictKey(text: text, offset: offset))
+            rawKeys.append((offset, Array(b[p..<end])))
             i = end + unit
         }
     }
 
     private func finishKeys() {
+        detectEncoding()
+        keys = rawKeys.map { MDictKey(text: decode($0.bytes).trimmingCharacters(in: .whitespacesAndNewlines), offset: $0.offset) }
+        rawKeys = []
         // Records are stored in offset order; keep keys in that order (stable for ties).
         let sorted = keys.enumerated().sorted { a, b in
             a.element.offset == b.element.offset ? a.offset < b.offset : a.element.offset < b.element.offset
@@ -380,6 +390,53 @@ public final class MDictFile {
             i -= 1
         }
         recordEnds = ends
+    }
+
+    /// Many older dictionaries declare GBK or Big5 but actually contain UTF-8. If a sample of
+    /// non-ASCII keys plus the first record block is valid UTF-8, trust that instead.
+    private func detectEncoding() {
+        effectiveEncodingName = header.encodingName
+        guard !isUTF16, textEncoding != .utf8 else { return }
+        var sample: [UInt8] = []
+        for key in rawKeys where key.bytes.contains(where: { $0 >= 0x80 }) {
+            sample += key.bytes
+            sample.append(0x0A)
+            if sample.count > 256 * 1024 { break }
+        }
+        if let block = try? firstRecordBlock() { sample += MDictFile.dropPartialUTF8(Array(block.prefix(1 << 20))) }
+        guard sample.contains(where: { $0 >= 0x80 }) else { return }
+        if String(bytes: sample, encoding: .utf8) != nil {
+            textEncoding = .utf8
+            effectiveEncodingName = "UTF-8 (header says \(header.encodingName))"
+        }
+    }
+
+    /// Removes a multi-byte UTF-8 sequence cut off at the end of `b` (from taking a prefix).
+    static func dropPartialUTF8(_ b: [UInt8]) -> [UInt8] {
+        var k = b.count - 1
+        var continuation = 0
+        while k >= 0 && continuation < 3 && (b[k] & 0xC0) == 0x80 {
+            k -= 1
+            continuation += 1
+        }
+        guard k >= 0, b[k] >= 0xC0 else { return b }
+        let needed = b[k] >= 0xF0 ? 4 : (b[k] >= 0xE0 ? 3 : 2)
+        return b.count - k < needed ? Array(b[..<k]) : b
+    }
+
+    /// Decompressed bytes of the first record block (used for encoding detection).
+    private func firstRecordBlock() throws -> [UInt8] {
+        var reader = ByteReader(data, at: recordSectionOffset)
+        let blockCount = try reader.number(width: numberWidth)
+        guard blockCount > 0 else { return [] }
+        _ = try reader.number(width: numberWidth)
+        _ = try reader.number(width: numberWidth)
+        _ = try reader.number(width: numberWidth)
+        let firstCompressed = try reader.number(width: numberWidth)
+        let firstDecompressed = try reader.number(width: numberWidth)
+        try reader.skip((blockCount - 1) * numberWidth * 2)
+        let raw = try reader.bytes(firstCompressed)
+        return [UInt8](try MDictCodec.decodeBlock(raw, decompressedSize: firstDecompressed))
     }
 
     private func decode(_ bytes: [UInt8]) -> String {

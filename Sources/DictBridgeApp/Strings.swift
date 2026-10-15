@@ -48,9 +48,12 @@ enum L {
     static var headwordAlways: String { t("Always", "总是") }
     static var headwordNever: String { t("Never", "从不") }
     static var convert: String { t("Convert & Install", "转换并安装") }
-    static var replacesExisting: String {
-        t("A dictionary with this file name is installed; it will be replaced (the old one goes to the Trash).",
-          "已安装同名词典，将被替换（旧版本移到废纸篓）。")
+    static func replaces(_ name: String) -> String {
+        t("Replaces the installed “\(name)” (the old version goes to the Trash).",
+          "将替换已安装的「\(name)」（旧版本会移到废纸篓）。")
+    }
+    static var chineseVariants: String {
+        t("Also find Chinese headwords in Simplified/Traditional script", "中文词头支持简繁互查（例如搜「苹果」也能找到「蘋果」）")
     }
 
     // Job
@@ -64,8 +67,8 @@ enum L {
           "\(entries) 个词条，\(keys) 个检索词，用时 \(Int(seconds)) 秒")
     }
     static var enableHint: String {
-        t("New dictionaries are usually enabled automatically. If you do not see it, open Dictionary → Settings and tick it.",
-          "新词典一般会自动启用；如果没看到，请到「词典」→「设置」里勾选它。")
+        t("DictBridge enables new dictionaries in Dictionary automatically. If you do not see it, open Dictionary → Settings and tick it.",
+          "DictBridge 会自动在「词典」里启用新词典；如果没看到，请到「词典」→「设置」里勾选它。")
     }
     static func stage(_ s: String) -> String {
         switch s {

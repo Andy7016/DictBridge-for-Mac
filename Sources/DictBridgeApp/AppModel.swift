@@ -10,7 +10,11 @@ struct PendingImport: Identifiable {
     var displayName: String
     var includeAudio = true
     var headwordMode: HeadwordMode = .auto
-    var replacesExisting: Bool
+    var chineseVariants = true
+    /// A dictionary made earlier from the same source (or with the same file name) that the
+    /// new one will replace; it goes to the Trash once the new one is installed.
+    var replaces: InstalledDictionary?
+    var replacesExisting: Bool { replaces != nil }
 }
 
 /// State of the running (or last) conversion.
@@ -84,11 +88,13 @@ final class AppModel: ObservableObject {
     func remove(_ d: InstalledDictionary) {
         do {
             try DictionaryLibrary.remove(d)
+            refresh()
             Task {
-                await DictionaryLibrary.restartDictionaryApp(reopen: DictionaryLibrary.isDictionaryAppRunning)
+                await DictionaryLibrary.updateDictionaryApp {
+                    DictionaryLibrary.setEnabled([], disable: [d.url])
+                }
                 refresh()
             }
-            refresh()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -104,8 +110,11 @@ final class AppModel: ObservableObject {
         do {
             let source = try SourceDictionary(url: url)
             let bundleFile = Slug.bundleName(for: source.baseName) + ".dictionary"
-            let exists = FileManager.default.fileExists(atPath: DictionaryLibrary.directory.appendingPathComponent(bundleFile).path)
-            pendingImport = PendingImport(source: source, displayName: source.suggestedName(), replacesExisting: exists)
+            let previous = DictionaryLibrary.installed().first {
+                $0.url.lastPathComponent == bundleFile || ($0.isDictBridge && $0.source == source.mdx.lastPathComponent)
+            }
+            pendingImport = PendingImport(source: source, displayName: previous?.name ?? source.suggestedName(),
+                                          replaces: previous)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -122,6 +131,7 @@ final class AppModel: ObservableObject {
                                         ? request.source.baseName : request.displayName)
         options.includeAudio = request.includeAudio
         options.headwordMode = request.headwordMode
+        options.chineseVariants = request.chineseVariants
         let converter = Converter(source: request.source, options: options, toolkit: toolkit)
         self.converter = converter
         job = ConversionJob(name: options.displayName)
@@ -145,6 +155,21 @@ final class AppModel: ObservableObject {
             } catch {
                 outcome = .failure(error)
             }
+            if case .success(let report) = outcome {
+                // Replace the previous version, enable the new one, and restart Dictionary.app.
+                let message = await DictionaryLibrary.updateDictionaryApp {
+                    var disable: [URL] = []
+                    if let old = request.replaces,
+                       old.url.standardizedFileURL.path != report.bundleURL.standardizedFileURL.path,
+                       FileManager.default.fileExists(atPath: old.url.path) {
+                        try? DictionaryLibrary.remove(old)
+                        disable.append(old.url)
+                    }
+                    guard let installed = DictionaryLibrary.describe(report.bundleURL) else { return "" }
+                    return DictionaryLibrary.setEnabled([installed], disable: disable)
+                }
+                if !message.isEmpty { logSink.send(message) }
+            }
             await logSink.flushNow()
             await MainActor.run {
                 switch outcome {
@@ -160,9 +185,6 @@ final class AppModel: ObservableObject {
                 }
                 self.converter = nil
                 self.refresh()
-            }
-            if case .success = outcome {
-                await DictionaryLibrary.restartDictionaryApp(reopen: DictionaryLibrary.isDictionaryAppRunning)
             }
         }
     }

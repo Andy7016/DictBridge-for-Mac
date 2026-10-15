@@ -108,6 +108,20 @@ def main(outdir):
     mdx("v12.mdx", ENTRIES, version="1.2")
     mdx("lzo.mdx", ENTRIES, compression_type=1, version="1.2")
     mdx("stored.mdx", ENTRIES, compression_type=0)
+    # Header claims Big5 but the data is UTF-8 (seen in real 1.2-era dictionaries), with
+    # syllable-dotted headwords and compact-format style markers.
+    mislabeled = {
+        "ap.ple": "`1`ap.ple`2`蘋果",
+        "beau.ti.ful": "`1`beau.ti.ful`2`美麗的",
+        "蘋果": "<b>蘋果</b> apple",
+    }
+    w = writemdict.MDictWriter(mislabeled, title="Mislabeled", description="utf-8 data, big5 header",
+                               encoding="utf8", version="1.2")
+    w._encoding = "BIG5"
+    with open(os.path.join(outdir, "mislabeled.mdx"), "wb") as f:
+        w.write(f)
+    expected["mislabeled.mdx"] = {"count": len(mislabeled), "entries": mislabeled, "title": "Mislabeled"}
+
     many = {f"word{i:05d}": f"<p>definition number {i} " + ("x" * (i % 97)) + "</p>" for i in range(3000)}
     mdx("multiblock.mdx", many, block_size=2048)
 

@@ -89,21 +89,75 @@ public enum DictionaryLibrary {
         return trashed as URL?
     }
 
+    // MARK: Dictionary.app's list of enabled dictionaries
+
+    private static let servicesDomain = "com.apple.DictionaryServices" as CFString
+    private static let activeKey = "DCSActiveDictionaries" as CFString
+
+    /// Adds dictionaries to / removes them from Dictionary.app's enabled list
+    /// (`DCSActiveDictionaries` in the `com.apple.DictionaryServices` preferences).
+    /// Quit Dictionary.app first, or it may write its own copy back when it quits.
+    /// - Returns: a short description for the log.
+    @discardableResult
+    public static func setEnabled(_ enable: [InstalledDictionary], disable: [URL] = []) -> String {
+        CFPreferencesAppSynchronize(servicesDomain)
+        guard let current = CFPreferencesCopyAppValue(activeKey, servicesDomain) as? [String] else {
+            return "Dictionary.app keeps no explicit list yet; leaving its defaults alone"
+        }
+        var list = current
+        let disabledPaths = Set(disable.map { $0.standardizedFileURL.path })
+        list.removeAll { disabledPaths.contains(URL(fileURLWithPath: $0).standardizedFileURL.path) }
+        // Entries are file paths on the macOS versions we know; fall back to identifiers if not.
+        let usesIdentifiers = !list.isEmpty && !list.contains { $0.hasPrefix("/") }
+        var added = 0
+        for d in enable {
+            let path = d.url.standardizedFileURL.path
+            let token = usesIdentifiers ? d.bundleIdentifier : path
+            let present = list.contains { $0 == path || $0 == d.bundleIdentifier
+                || URL(fileURLWithPath: $0).standardizedFileURL.path == path }
+            if !present && !token.isEmpty {
+                list.append(token)
+                added += 1
+            }
+        }
+        guard list != current else { return "Dictionary.app list unchanged (\(list.count) enabled)" }
+        CFPreferencesSetAppValue(activeKey, list as CFArray, servicesDomain)
+        CFPreferencesAppSynchronize(servicesDomain)
+        return "Dictionary.app: enabled \(added), \(list.count) now in its list (\(usesIdentifiers ? "identifiers" : "paths"))"
+    }
+
+    /// Whether Dictionary.app lists `dictionary` as enabled (nil if unknown).
+    public static func isEnabled(_ dictionary: InstalledDictionary) -> Bool? {
+        CFPreferencesAppSynchronize(servicesDomain)
+        guard let list = CFPreferencesCopyAppValue(activeKey, servicesDomain) as? [String] else { return nil }
+        let path = dictionary.url.standardizedFileURL.path
+        return list.contains { $0 == path || $0 == dictionary.bundleIdentifier
+            || URL(fileURLWithPath: $0).standardizedFileURL.path == path }
+    }
+
     #if canImport(AppKit)
-    /// Dictionary.app only notices added/removed dictionaries when it starts, so quit it
-    /// (and optionally reopen it) after changing the library.
-    public static func restartDictionaryApp(reopen: Bool) async {
+    /// Quits Dictionary.app, applies `change`, then reopens Dictionary.app if it was running
+    /// (it only notices added or removed dictionaries when it starts).
+    @discardableResult
+    public static func updateDictionaryApp(reopen: Bool? = nil, _ change: () -> String = { "" }) async -> String {
         let running = NSRunningApplication.runningApplications(withBundleIdentifier: dictionaryAppBundleID)
+        let wasRunning = !running.isEmpty
         for app in running { app.terminate() }
-        for _ in 0..<30 where running.contains(where: { !$0.isTerminated }) {
+        for _ in 0..<50 where running.contains(where: { !$0.isTerminated }) {
             try? await Task.sleep(nanoseconds: 100_000_000)
         }
-        guard reopen else { return }
-        if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: dictionaryAppBundleID) {
+        let message = change()
+        if reopen ?? wasRunning, let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: dictionaryAppBundleID) {
             let config = NSWorkspace.OpenConfiguration()
             config.activates = true
             _ = try? await NSWorkspace.shared.openApplication(at: appURL, configuration: config)
         }
+        return message
+    }
+
+    /// Restarts Dictionary.app so it picks up added or removed dictionaries.
+    public static func restartDictionaryApp(reopen: Bool) async {
+        await updateDictionaryApp(reopen: reopen)
     }
 
     public static var isDictionaryAppRunning: Bool {

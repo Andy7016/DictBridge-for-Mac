@@ -37,6 +37,8 @@ struct ImportSheet: View {
             }
 
             DisclosureGroup(L.advanced, isExpanded: $showAdvanced) {
+                Toggle(L.chineseVariants, isOn: $request.chineseVariants)
+                    .padding(.top, 6)
                 Picker(L.headwordLabel, selection: $request.headwordMode) {
                     Text(L.headwordAuto).tag(HeadwordMode.auto)
                     Text(L.headwordAlways).tag(HeadwordMode.always)
@@ -46,8 +48,8 @@ struct ImportSheet: View {
                 .padding(.top, 6)
             }
 
-            if request.replacesExisting {
-                Label(L.replacesExisting, systemImage: "exclamationmark.triangle")
+            if let old = request.replaces {
+                Label(L.replaces(old.name), systemImage: "arrow.triangle.2.circlepath")
                     .font(.callout)
                     .foregroundStyle(.orange)
             }

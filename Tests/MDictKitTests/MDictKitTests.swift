@@ -128,6 +128,23 @@ final class MDictKitTests: XCTestCase {
     func testStoredMDX() throws { try checkMDX("stored.mdx") }
     func testMultiBlockMDX() throws { try checkMDX("multiblock.mdx") }
 
+    func testMislabeledEncodingIsDetected() throws {
+        try checkMDX("mislabeled.mdx")
+        let mdx = try MDictFile(url: try fixture("mislabeled.mdx"))
+        XCTAssertEqual(mdx.header.encodingName, "BIG5")
+        XCTAssertTrue(mdx.effectiveEncodingName.hasPrefix("UTF-8"), mdx.effectiveEncodingName)
+        XCTAssertTrue(mdx.keys.contains { $0.text == "蘋果" })
+    }
+
+    func testPartialUTF8IsTrimmed() {
+        let apple = Array("蘋果".utf8)  // two 3-byte sequences
+        XCTAssertEqual(MDictFile.dropPartialUTF8(apple), apple)
+        XCTAssertEqual(MDictFile.dropPartialUTF8(Array(apple.prefix(5))), Array(apple.prefix(3)))
+        XCTAssertEqual(MDictFile.dropPartialUTF8(Array(apple.prefix(4))), Array(apple.prefix(3)))
+        XCTAssertEqual(MDictFile.dropPartialUTF8(Array("ab".utf8)), Array("ab".utf8))
+        XCTAssertEqual(MDictFile.dropPartialUTF8([]), [])
+    }
+
     func testHeaderDescriptionIsUnescaped() throws {
         let mdx = try MDictFile(url: try fixture("basic.mdx"))
         XCTAssertEqual(mdx.header.descriptionHTML, "<b>Synthetic</b> test dictionary &amp; fixture")
