@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+          sw_vers
+
+      - name: Build
+        run: swift build
+
+      - name: Unit tests
+        run: swift test
+
+      - name: End-to-end conversion with Apple's Dictionary Development Kit
+        run: |
+          swift build -c release --product dictbridge
+          BIN="$(swift build -c release --show-bin-path)"
+          "$BIN/dictbridge" ddk --download
+          mkdir -p "$RUNNER_TEMP/e2e"
+          cp Tests/MDictKitTests/Fixtures/basic.mdx Tests/MDictKitTests/Fixtures/basic.mdd "$RUNNER_TEMP/e2e/"
+          printf '.entry{color:#333}\nEN{display:block}\n' > "$RUNNER_TEMP/e2e/basic.css"
+          "$BIN/dictbridge" info "$RUNNER_TEMP/e2e/basic.mdx"
+          "$BIN/dictbridge" convert "$RUNNER_TEMP/e2e/basic.mdx" --name "DictBridge CI" \
+              --no-install --output "$RUNNER_TEMP/e2e" --keep-work
+          D="$RUNNER_TEMP/e2e/basic.dictionary"
+          test -s "$D/Contents/Resources/Body.data"
+          test -s "$D/Contents/Resources/KeyText.index"
+          test -f "$D/Contents/Resources/img/spk.png"
+          test -f "$D/Contents/Resources/snd/apple.mp3"
+          plutil -p "$D/Contents/Info.plist"
+          echo "--- DefaultStyle.css"; cat "$D/Contents/Resources/DefaultStyle.css"
+          # Validate the generated source XML that was kept with --keep-work.
+          XML="$(ls -t "$HOME"/Library/Caches/DictBridge/build-*/dict.xml | head -1)"
+          xmllint --noout "$XML"
+          echo "--- dict.xml"; head -c 4000 "$XML"
+
+      - name: Package DictBridge.app
+        run: scripts/build-app.sh
+
+      - name: Smoke-test the packaged CLI
+        run: dist/DictBridge.app/Contents/Resources/dictbridge --version
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DictBridge
+          path: |
+            dist/*.zip
+            dist/*.dmg
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.zip
+            dist/*.dmg
+          generate_release_notes: true

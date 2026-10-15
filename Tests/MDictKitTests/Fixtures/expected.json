@@ -1,0 +1,145 @@
+{
+ "basic.mdd": {
+  "count": 5,
+  "files": {
+   "\\img\\cherry.png": {
+    "sha256": "41123021cc61d73705371231d373b408a73b110a1594f5622a09f779f979966e",
+    "size": 66
+   },
+   "\\img\\spk.png": {
+    "sha256": "41123021cc61d73705371231d373b408a73b110a1594f5622a09f779f979966e",
+    "size": 66
+   },
+   "\\sample.css": {
+    "sha256": "20961928c6554d28192a865cea834387f5ede06a7f76277cfbf0cdcd79756b1b",
+    "size": 53
+   },
+   "\\sample.js": {
+    "sha256": "5e0301550e233c15ef8469a5c56cfd8b5a97b3d1814d2340f59024b18a854910",
+    "size": 111
+   },
+   "\\snd\\apple.mp3": {
+    "sha256": "788956ab9789a7cc4d0970d5ec60eeec71e8cfa60ae9333570fd86800cc315df",
+    "size": 67
+   }
+  }
+ },
+ "basic.mdx": {
+  "count": 6,
+  "entries": {
+   "Bananas": "@@@LINK=banana",
+   "apple": "<link rel=\"stylesheet\" type=\"text/css\" href=\"sample.css\"><script type=\"text/javascript\" src=\"sample.js\"></script><div class=\"entry\"><span class=\"hw\">apple</span> <span class=\"pos\">noun</span> <a href=\"sound://snd/apple.mp3\"><img src=\"img/spk.png\"></a><span class=\"btn\" onclick=\"sample.toggle(this)\">Examples</span><div class=\"pop\">An apple a day.</div><EN>a round fruit</EN><TRAN>苹果</TRAN><p>See <a href=\"entry://banana\">banana</a> and <a href=\"entry://#sense2\">sense 2</a>.</p><a name=\"sense2\"></a><p class=\"sense\">2. something else &amp; more&nbsp;text</p><exat></exat></div>",
+   "banana": "<div class=\"entry\"><b>banana</b> a long yellow fruit<br>香蕉</div>",
+   "cherries": "@@@LINK=cherry",
+   "cherry": "<div class=\"entry\"><b>cherry</b> <img src=\"/img/cherry.png\"> small red fruit</div>",
+   "durian": "<div class=\"entry\"><b>durian</b> see <a href=\"bword://cherry\">cherry</a></div>"
+  },
+  "title": "DictBridge Sample"
+ },
+ "encrypted.mdx": {
+  "count": 6,
+  "entries": {
+   "Bananas": "@@@LINK=banana",
+   "apple": "<link rel=\"stylesheet\" type=\"text/css\" href=\"sample.css\"><script type=\"text/javascript\" src=\"sample.js\"></script><div class=\"entry\"><span class=\"hw\">apple</span> <span class=\"pos\">noun</span> <a href=\"sound://snd/apple.mp3\"><img src=\"img/spk.png\"></a><span class=\"btn\" onclick=\"sample.toggle(this)\">Examples</span><div class=\"pop\">An apple a day.</div><EN>a round fruit</EN><TRAN>苹果</TRAN><p>See <a href=\"entry://banana\">banana</a> and <a href=\"entry://#sense2\">sense 2</a>.</p><a name=\"sense2\"></a><p class=\"sense\">2. something else &amp; more&nbsp;text</p><exat></exat></div>",
+   "banana": "<div class=\"entry\"><b>banana</b> a long yellow fruit<br>香蕉</div>",
+   "cherries": "@@@LINK=cherry",
+   "cherry": "<div class=\"entry\"><b>cherry</b> <img src=\"/img/cherry.png\"> small red fruit</div>",
+   "durian": "<div class=\"entry\"><b>durian</b> see <a href=\"bword://cherry\">cherry</a></div>"
+  },
+  "title": "DictBridge Sample"
+ },
+ "gbk.mdx": {
+  "count": 3,
+  "entries": {
+   "fruit": "@@@LINK=苹果",
+   "苹果": "<b>苹果</b>：一种水果",
+   "香蕉": "<b>香蕉</b>：黄色的水果"
+  },
+  "title": "DictBridge Sample"
+ },
+ "lzo.mdx": {
+  "count": 6,
+  "entries": {
+   "Bananas": "@@@LINK=banana",
+   "apple": "<link rel=\"stylesheet\" type=\"text/css\" href=\"sample.css\"><script type=\"text/javascript\" src=\"sample.js\"></script><div class=\"entry\"><span class=\"hw\">apple</span> <span class=\"pos\">noun</span> <a href=\"sound://snd/apple.mp3\"><img src=\"img/spk.png\"></a><span class=\"btn\" onclick=\"sample.toggle(this)\">Examples</span><div class=\"pop\">An apple a day.</div><EN>a round fruit</EN><TRAN>苹果</TRAN><p>See <a href=\"entry://banana\">banana</a> and <a href=\"entry://#sense2\">sense 2</a>.</p><a name=\"sense2\"></a><p class=\"sense\">2. something else &amp; more&nbsp;text</p><exat></exat></div>",
+   "banana": "<div class=\"entry\"><b>banana</b> a long yellow fruit<br>香蕉</div>",
+   "cherries": "@@@LINK=cherry",
+   "cherry": "<div class=\"entry\"><b>cherry</b> <img src=\"/img/cherry.png\"> small red fruit</div>",
+   "durian": "<div class=\"entry\"><b>durian</b> see <a href=\"bword://cherry\">cherry</a></div>"
+  },
+  "title": "DictBridge Sample"
+ },
+ "multiblock.mdx": {
+  "count": 3000,
+  "entries": {
+   "word00000": "<p>definition number 0 </p>",
+   "word00097": "<p>definition number 97 </p>",
+   "word00194": "<p>definition number 194 </p>",
+   "word00291": "<p>definition number 291 </p>",
+   "word00388": "<p>definition number 388 </p>",
+   "word00485": "<p>definition number 485 </p>",
+   "word00582": "<p>definition number 582 </p>",
+   "word00679": "<p>definition number 679 </p>",
+   "word00776": "<p>definition number 776 </p>",
+   "word00873": "<p>definition number 873 </p>",
+   "word00970": "<p>definition number 970 </p>",
+   "word01067": "<p>definition number 1067 </p>",
+   "word01164": "<p>definition number 1164 </p>",
+   "word01261": "<p>definition number 1261 </p>",
+   "word01358": "<p>definition number 1358 </p>",
+   "word01455": "<p>definition number 1455 </p>",
+   "word01552": "<p>definition number 1552 </p>",
+   "word01649": "<p>definition number 1649 </p>",
+   "word01746": "<p>definition number 1746 </p>",
+   "word01843": "<p>definition number 1843 </p>",
+   "word01940": "<p>definition number 1940 </p>",
+   "word02037": "<p>definition number 2037 </p>",
+   "word02134": "<p>definition number 2134 </p>",
+   "word02231": "<p>definition number 2231 </p>",
+   "word02328": "<p>definition number 2328 </p>",
+   "word02425": "<p>definition number 2425 </p>",
+   "word02522": "<p>definition number 2522 </p>",
+   "word02619": "<p>definition number 2619 </p>",
+   "word02716": "<p>definition number 2716 </p>",
+   "word02813": "<p>definition number 2813 </p>",
+   "word02910": "<p>definition number 2910 </p>"
+  },
+  "title": "DictBridge Sample"
+ },
+ "stored.mdx": {
+  "count": 6,
+  "entries": {
+   "Bananas": "@@@LINK=banana",
+   "apple": "<link rel=\"stylesheet\" type=\"text/css\" href=\"sample.css\"><script type=\"text/javascript\" src=\"sample.js\"></script><div class=\"entry\"><span class=\"hw\">apple</span> <span class=\"pos\">noun</span> <a href=\"sound://snd/apple.mp3\"><img src=\"img/spk.png\"></a><span class=\"btn\" onclick=\"sample.toggle(this)\">Examples</span><div class=\"pop\">An apple a day.</div><EN>a round fruit</EN><TRAN>苹果</TRAN><p>See <a href=\"entry://banana\">banana</a> and <a href=\"entry://#sense2\">sense 2</a>.</p><a name=\"sense2\"></a><p class=\"sense\">2. something else &amp; more&nbsp;text</p><exat></exat></div>",
+   "banana": "<div class=\"entry\"><b>banana</b> a long yellow fruit<br>香蕉</div>",
+   "cherries": "@@@LINK=cherry",
+   "cherry": "<div class=\"entry\"><b>cherry</b> <img src=\"/img/cherry.png\"> small red fruit</div>",
+   "durian": "<div class=\"entry\"><b>durian</b> see <a href=\"bword://cherry\">cherry</a></div>"
+  },
+  "title": "DictBridge Sample"
+ },
+ "utf16.mdx": {
+  "count": 6,
+  "entries": {
+   "Bananas": "@@@LINK=banana",
+   "apple": "<link rel=\"stylesheet\" type=\"text/css\" href=\"sample.css\"><script type=\"text/javascript\" src=\"sample.js\"></script><div class=\"entry\"><span class=\"hw\">apple</span> <span class=\"pos\">noun</span> <a href=\"sound://snd/apple.mp3\"><img src=\"img/spk.png\"></a><span class=\"btn\" onclick=\"sample.toggle(this)\">Examples</span><div class=\"pop\">An apple a day.</div><EN>a round fruit</EN><TRAN>苹果</TRAN><p>See <a href=\"entry://banana\">banana</a> and <a href=\"entry://#sense2\">sense 2</a>.</p><a name=\"sense2\"></a><p class=\"sense\">2. something else &amp; more&nbsp;text</p><exat></exat></div>",
+   "banana": "<div class=\"entry\"><b>banana</b> a long yellow fruit<br>香蕉</div>",
+   "cherries": "@@@LINK=cherry",
+   "cherry": "<div class=\"entry\"><b>cherry</b> <img src=\"/img/cherry.png\"> small red fruit</div>",
+   "durian": "<div class=\"entry\"><b>durian</b> see <a href=\"bword://cherry\">cherry</a></div>"
+  },
+  "title": "DictBridge Sample"
+ },
+ "v12.mdx": {
+  "count": 6,
+  "entries": {
+   "Bananas": "@@@LINK=banana",
+   "apple": "<link rel=\"stylesheet\" type=\"text/css\" href=\"sample.css\"><script type=\"text/javascript\" src=\"sample.js\"></script><div class=\"entry\"><span class=\"hw\">apple</span> <span class=\"pos\">noun</span> <a href=\"sound://snd/apple.mp3\"><img src=\"img/spk.png\"></a><span class=\"btn\" onclick=\"sample.toggle(this)\">Examples</span><div class=\"pop\">An apple a day.</div><EN>a round fruit</EN><TRAN>苹果</TRAN><p>See <a href=\"entry://banana\">banana</a> and <a href=\"entry://#sense2\">sense 2</a>.</p><a name=\"sense2\"></a><p class=\"sense\">2. something else &amp; more&nbsp;text</p><exat></exat></div>",
+   "banana": "<div class=\"entry\"><b>banana</b> a long yellow fruit<br>香蕉</div>",
+   "cherries": "@@@LINK=cherry",
+   "cherry": "<div class=\"entry\"><b>cherry</b> <img src=\"/img/cherry.png\"> small red fruit</div>",
+   "durian": "<div class=\"entry\"><b>durian</b> see <a href=\"bword://cherry\">cherry</a></div>"
+  },
+  "title": "DictBridge Sample"
+ }
+}
