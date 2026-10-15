@@ -6,19 +6,31 @@
 .css ─┘   (read)      (transform)        (XML/CSS/plist)    (Apple)    └─ OtherResources
 ```
 
-1. **Index.** MDictKit reads the key index. The first pass over the records separates real
-   entries from `@@@LINK=target` redirects. Each redirect becomes an extra `<d:index>` on its
-   target entry, so searching *went* finds *go*.
+1. **Index.** MDictKit reads the key index. If the header declares GBK, Big5 or another legacy
+   encoding but a sample of keys and records is valid UTF-8, UTF-8 is used instead (many older
+   dictionaries are mislabeled). The first pass over the records separates real entries from
+   `@@@LINK=target` redirects. Each redirect becomes an extra `<d:index>` on its target entry,
+   so searching *went* finds *go*.
 2. **Resources.** Every `.mdd` volume is extracted into `OtherResources/`. Backslash paths become
    `/`, names are deduplicated case-insensitively, and `.css`/`.js` files are kept aside.
    Fonts and images lying next to the `.mdx` are copied as well.
 3. **Entries.** Records are parsed with libxml2's forgiving HTML parser in parallel batches,
-   rewritten (see below), and streamed into one XML file.
+   rewritten (see below), and streamed into one XML file. Each entry also gets extra search
+   keys, because Dictionary.app matches keys exactly while MDict programs look words up loosely:
+   - headwords with syllable marks (`ap.ple`, `beau·ti·ful`, `ˈapple`) get the plain form
+     (`apple`), which is also used as the title in the result list;
+   - Chinese headwords get their Simplified and Traditional counterparts (`蘋果` ↔ `苹果`),
+     using ICU's character tables (can be turned off).
 4. **Style sheet.** All CSS is merged into `DefaultStyle.css`, with type selectors lower-cased and
    `url()` paths fixed.
 5. **Build.** Apple's `build_dict.sh -v 10.11` compiles the bundle. The result is moved into
-   `~/Library/Dictionaries`. An older bundle with the same file name goes to the Trash.
-   Dictionary.app is then restarted, because it only notices new dictionaries when it launches.
+   `~/Library/Dictionaries`. An older bundle with the same file name, or an older DictBridge
+   build of the same `.mdx`, goes to the Trash. Non-Latin names are transliterated for the
+   bundle's file name (`新牛津英汉双解大词典` → `xin-niu-jin-ying-han-shuang-jie-da-ci-dian`).
+6. **Enable.** Dictionary.app is quit, the new bundle is added to its list of enabled
+   dictionaries (`DCSActiveDictionaries` in the `com.apple.DictionaryServices` preferences), and
+   Dictionary.app is reopened if it was running, because it only notices new dictionaries when
+   it launches.
 
 ## Dictionary.app quirks (and what DictBridge does about them)
 
