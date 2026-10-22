@@ -1,0 +1,59 @@
+name: 词典兼容性反馈 / Dictionary report
+description: 告诉我们某部词典转换成功了，帮忙补充「已测试过的词典」/ Tell us a dictionary converted fine
+body:
+  - type: markdown
+    attributes:
+      value: |
+        转换成功也欢迎告诉我们，README 里「已测试过的词典」就是靠这些反馈补充的。转换失败或显示有问题，请改用「转换失败或显示异常」模板。
+        Successful conversions help too: they go into the tested-dictionaries list in the README. For failures, use the *Problem report* template instead.
+
+        ⚠️ **请不要上传词典文件，也不要贴词典的下载链接。** Please do not attach dictionary files or link to downloads.
+
+  - type: input
+    id: dictionary
+    attributes:
+      label: 词典名称和版本 / Dictionary and edition
+      placeholder: 例：牛津高阶第 8 版英汉双解（OALDCN8）
+    validations:
+      required: true
+
+  - type: dropdown
+    id: result
+    attributes:
+      label: 结果 / Result
+      options:
+        - 一切正常 / Everything works
+        - 能用，但有小问题 / Works, with minor issues
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: 日志 / Log
+      description: |
+        转换完成后展开「日志」，选中里面的文字复制，粘贴到这里。日志里有词典格式、编码、词条数和用时。
+        Expand *Log* after the conversion, select and copy the text, and paste it here. It shows the format, encoding, entry count and timing.
+      render: text
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 补充说明 / Notes
+      description: 有小问题的话写在这里，可以附截图。/ Describe any minor issues; screenshots welcome.
+
+  - type: input
+    id: version
+    attributes:
+      label: DictBridge 版本 / DictBridge version
+      placeholder: "0.3.0"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 确认 / Checklist
+      options:
+        - label: 我没有上传词典文件，也没有贴词典的下载链接。/ I did not attach dictionary files or download links.
+          required: true

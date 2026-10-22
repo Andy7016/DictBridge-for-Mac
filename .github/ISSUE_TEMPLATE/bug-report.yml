@@ -1,0 +1,115 @@
+name: 转换失败或显示异常 / Problem report
+description: 转换失败、卡住不动、装好后显示不正常、搜不到词 / A conversion failed, hangs, or the result looks wrong
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        谢谢反馈！日志是排查问题最重要的线索，请尽量附上。
+        Thanks for the report! The log is the most useful clue, so please include it.
+
+        ⚠️ **请不要上传词典文件，也不要贴词典的下载链接。** Please do not attach dictionary files or link to downloads.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 问题类型 / What happened
+      options:
+        - 转换失败 / Conversion failed
+        - 卡住不动 / Conversion hangs
+        - 装好了，但显示不正常 / Installed, but looks wrong
+        - 搜不到某个词 / A word cannot be found
+        - 其他 / Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 具体情况 / Details
+      description: |
+        发生了什么？卡住的话，卡在哪一步、已经等了多久？显示问题请写出词条和截图。
+        What happened? If it hangs: at which step, and for how long? For display problems, name the entry and add a screenshot.
+      placeholder: 例：进度停在「苹果工具编译」，等了 40 分钟没有变化。
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: 日志 / Log
+      description: |
+        转换失败或卡住时请一定附上。失败后点「复制日志」粘贴到这里；一直卡住的话，先点「取消」，再点「复制日志」。转换成功的，展开「日志」选中文字复制。
+        Needed for failures and hangs. After a failure click *Copy Log*; if it hangs, click *Cancel* first, then *Copy Log*. After a successful conversion, expand *Log* and copy the text.
+      render: text
+
+  - type: input
+    id: dictionary
+    attributes:
+      label: 词典名称和版本 / Dictionary and edition
+      placeholder: 例：牛津高阶第 8 版英汉双解（OALDCN8）
+    validations:
+      required: true
+
+  - type: textarea
+    id: files
+    attributes:
+      label: 词典文件 / Dictionary files
+      description: |
+        列出文件名和大小（在访达里选中文件按 ⌘I 可以看到大小），不要上传文件本身。
+        List the file names and sizes (⌘I in Finder). Do not upload the files.
+      placeholder: |
+        OALDCN8.mdx  45 MB
+        OALDCN8.mdd  1.1 GB
+        OALDCN8.css  60 KB
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: DictBridge 版本 / DictBridge version
+      description: 菜单栏 DictBridge →「关于 DictBridge」/ DictBridge → About DictBridge
+      placeholder: "0.3.0"
+    validations:
+      required: true
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS 版本 / macOS version
+      description: 苹果菜单 →「关于本机」/ Apple menu → About This Mac
+      placeholder: "macOS 15.6"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: chip
+    attributes:
+      label: Mac 芯片 / Chip
+      options:
+        - Apple 芯片（M 系列）/ Apple silicon
+        - Intel
+    validations:
+      required: true
+
+  - type: input
+    id: disk
+    attributes:
+      label: 可用磁盘空间 / Free disk space
+      description: 转换大型词典需要几 GB 临时空间。/ Large dictionaries need several GB of temporary space.
+      placeholder: 例：35 GB
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 截图 / Screenshots
+      description: 可以直接把图片拖进这个框。/ Drag images into this box.
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 确认 / Checklist
+      options:
+        - label: 我没有上传词典文件，也没有贴词典的下载链接。/ I did not attach dictionary files or download links.
+          required: true

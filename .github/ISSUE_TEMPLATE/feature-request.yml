@@ -1,0 +1,25 @@
+name: 功能建议 / Feature request
+description: 希望 DictBridge 增加或改进的功能 / Suggest a new feature or an improvement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 想解决什么问题 / The problem
+      description: 现在用起来哪里不方便？/ What is inconvenient today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: 你的想法 / Your idea
+      description: 希望 DictBridge 怎么做？/ What would you like DictBridge to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 补充 / Anything else
+      description: 截图、参考的软件等。/ Screenshots, similar tools, etc.
