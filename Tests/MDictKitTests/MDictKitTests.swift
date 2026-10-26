@@ -93,6 +93,42 @@ final class MDictKitTests: XCTestCase {
         XCTAssertEqual(String(decoding: try MDictCodec.inflate(z, expectedSize: nil), as: UTF8.self), plain)
     }
 
+    // MARK: MDict 3.0 ciphers
+
+    func testXXHash64Vectors() {
+        let vectors: [([UInt8], String)] = [
+            (Array("".utf8), "ef46db3751d8e999"),
+            (Array("a".utf8), "d24ec4f1a98c6e5b"),
+            (Array("abc".utf8), "44bc2cf5ad770999"),
+            (Array("0123456789abcdef0123456789abcdef".utf8), "642a94958e71e6c5"),
+            (Array("The quick brown fox jumps over the lazy dog".utf8), "0b242d361fda71bc"),
+            ((0..<768).map { UInt8($0 & 0xFF) }, "8e03c838c596036f"),
+        ]
+        for (input, digest) in vectors {
+            XCTAssertEqual(hex(XXHash64.digest(input)), digest, "\(input.count) bytes")
+        }
+    }
+
+    func testSalsa20Vectors() {
+        let key16 = (0..<16).map { UInt8($0) }
+        let stream = Salsa20.xor([UInt8](repeating: 0, count: 150), key: key16, rounds: 8)
+        XCTAssertEqual(hex(Array(stream[0..<64])), "b944f975fa4f57828cd395ec502244c7ec8cc5c03b0855362712093a0f3e4d7fad253a30ae26c6a4d5533581684e4c9299f95b4a04d0e0fb045eecad98b9bed9")
+        XCTAssertEqual(hex(Array(stream[128..<150])), "20deaaaccf69ebb3e2f4817c2856667e8a9ecec45e5f")
+        let key32 = (0..<32).map { UInt8($0) }
+        let stream32 = Salsa20.xor([UInt8](repeating: 0, count: 64), key: key32, rounds: 8)
+        XCTAssertEqual(hex(stream32), "ba3fb682eb86d3672981d4d7c39ba93a66b78d1d867a8ef6bd9523c8ca39cae47a0cdf6118afbaf8cd60d5f1626967216aa433df22a7be576c80df29197ccd0f")
+        // Decryption is the same operation.
+        let plain = Array("MDict 3.0 record block".utf8)
+        XCTAssertEqual(Salsa20.xor(Salsa20.xor(plain, key: key16), key: key16), plain)
+    }
+
+    func testV3BlockKeyFromUUID() {
+        let key = MDictFile.blockKey(uuid: "5c3f1a2e-8d4b-4c7a-9e61-0b2d3f4a5c6d")
+        XCTAssertEqual(key.map(hex), "ab31853ff32df811f01e455e18c4f7d8")
+        XCTAssertNil(MDictFile.blockKey(uuid: nil))
+        XCTAssertNil(MDictFile.blockKey(uuid: ""))
+    }
+
     // MARK: MDX fixtures
 
     private func checkMDX(_ name: String, file: StaticString = #filePath, line: UInt = #line) throws {
@@ -128,6 +164,20 @@ final class MDictKitTests: XCTestCase {
     func testStoredMDX() throws { try checkMDX("stored.mdx") }
     func testMultiBlockMDX() throws { try checkMDX("multiblock.mdx") }
 
+    func testMDictV3MDX() throws {
+        try checkMDX("v3.mdx")
+        let mdx = try MDictFile(url: try fixture("v3.mdx"))
+        XCTAssertEqual(mdx.header.engineVersion, 3.0)
+        XCTAssertEqual(mdx.header.descriptionHTML, "<b>Synthetic</b> 3.0 fixture")
+        XCTAssertTrue(mdx.keys.contains { $0.text == "蘋果" })
+    }
+
+    /// UUID-keyed file: Salsa20 key blocks, mixed fast/Salsa20/stored record blocks, sections in reverse order.
+    func testMDictV3EncryptedMDX() throws {
+        try checkMDX("v3-encrypted.mdx")
+        XCTAssertEqual(try MDictFile(url: try fixture("v3-encrypted.mdx")).header.engineVersion, 3.0)
+    }
+
     func testMislabeledEncodingIsDetected() throws {
         try checkMDX("mislabeled.mdx")
         let mdx = try MDictFile(url: try fixture("mislabeled.mdx"))
@@ -162,9 +212,12 @@ final class MDictKitTests: XCTestCase {
 
     // MARK: MDD fixture
 
-    func testMDDResources() throws {
-        let exp = try XCTUnwrap(try expected()["basic.mdd"])
-        let mdd = try MDictFile(url: try fixture("basic.mdd"))
+    func testMDDResources() throws { try checkMDD("basic.mdd") }
+    func testMDictV3MDD() throws { try checkMDD("v3.mdd") }
+
+    private func checkMDD(_ name: String) throws {
+        let exp = try XCTUnwrap(try expected()[name])
+        let mdd = try MDictFile(url: try fixture(name))
         XCTAssertEqual(mdd.kind, .mdd)
         XCTAssertEqual(mdd.entryCount, exp.count)
         var found: [String: (Int, String)] = [:]
@@ -177,6 +230,9 @@ final class MDictKitTests: XCTestCase {
             let got = try XCTUnwrap(found[name], "missing resource \(name)")
             XCTAssertEqual(got.0, info.size, name)
             XCTAssertEqual(got.1, info.sha256, name)
+        }
+        if exp.files == nil {
+            XCTFail("\(name): no file expectations")
         }
     }
 

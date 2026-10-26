@@ -44,7 +44,7 @@ DictBridge 负责格式转换。把 `.mdx` 拖进窗口，它会读出词条、�
   - 词典脚本只保存一份，所有词条共用，大型词典转换后不会因此变大。
 - **词典管理**：列出 `~/Library/Dictionaries` 里的所有词典。删除时移到废纸篓，之后还能恢复。
 - **格式支持**：
-  - MDict 1.2 和 2.0
+  - MDict 1.2、2.0 和 3.0
   - UTF-8、UTF-16、GBK、Big5 编码
   - zlib 和 LZO 压缩
   - 加密索引（`Encrypted="2"`）
@@ -148,7 +148,6 @@ DictBridge 会自动启用新词典并重启「词典」App。如果还是没看
 
 ## 已知限制
 
-- 不支持 MDict 3.0 新格式。
 - 需要注册码才能打开的词典（`Encrypted="1"`）只能尽力读取，不保证成功。
 - `.mdd` 文件要和 `.mdx` 同名（`name.mdd`、`name.1.mdd`……）才会被识别。
 - 样式表只用词条里引用的那几个，外加和词典同名的 `.css`；都没有时，才用 `.mdx` 旁边的 `.css`。词典文件夹里的文件优先于 `.mdd` 里的同名文件，所以想换样式，把改好的 `.css` 放在 `.mdx` 旁边就行。
@@ -197,7 +196,7 @@ But it only reads Apple's `.dictionary` bundles, not the MDict dictionaries most
 - Enables new dictionaries in Dictionary automatically and replaces an older version of the same dictionary.
 - Handles Dictionary.app quirks: lost spaces, clickable expanders, playable audio. In the force-click popover, which shows only the start of each entry and ignores clicks, buttons and speaker icons are hidden so the definition comes first. See [docs/how-it-works.md](docs/how-it-works.md).
 - Uses only the style sheets the entries link to, and keeps one shared copy of each script.
-- Supports MDict 1.2/2.0; UTF-8, UTF-16, GBK and Big5 encodings; zlib and LZO compression; encrypted key index (`Encrypted="2"`).
+- Supports MDict 1.2, 2.0 and 3.0; UTF-8, UTF-16, GBK and Big5 encodings; zlib and LZO compression; encrypted key index (`Encrypted="2"`), and MDict 3.0's encrypted blocks.
 - Includes a `dictbridge` command-line tool (`DictBridge.app/Contents/Resources/dictbridge`; run `dictbridge help`).
 
 **Install.** Download the `.dmg` from [Releases](../../releases/latest). The app is not notarized yet, so on first launch go to System Settings → Privacy & Security → *Open Anyway*, or run `xattr -dr com.apple.quarantine /Applications/DictBridge.app`.
@@ -206,7 +205,7 @@ The first conversion asks to download Apple's Dictionary Development Kit (about 
 
 Requires macOS 13 or later, on Apple silicon or Intel.
 
-**Known limitations.** No MDict 3.0. Dictionaries that need a registration key (`Encrypted="1"`) are read on a best-effort basis. `.mdd` files must share the `.mdx` file's name. Files next to the `.mdx` override same-named files in the `.mdd`. In the popover, clicks (expanders, audio) do nothing; use *More* to open the full entry. `.spx` audio does not play.
+**Known limitations.** Dictionaries that need a registration key (`Encrypted="1"`) are read on a best-effort basis. `.mdd` files must share the `.mdx` file's name. Files next to the `.mdx` override same-named files in the `.mdd`. In the popover, clicks (expanders, audio) do nothing; use *More* to open the full entry. `.spx` audio does not play.
 
 **Build.** Run `swift build && swift test`, then `scripts/build-app.sh` to produce `dist/DictBridge.app`.
 

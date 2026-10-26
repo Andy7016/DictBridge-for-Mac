@@ -197,15 +197,35 @@ public enum MDictCodec {
 
     // MARK: MDict block container
 
-    /// Decodes one MDict block: 4-byte compression type, 4-byte adler32, payload.
-    static func decodeBlock(_ block: Data, decompressedSize: Int) throws -> Data {
+    /// Decodes one MDict block: a 4-byte little-endian info word, a 4-byte adler32, the payload.
+    ///
+    /// The info word holds the compression (bits 0–3), the encryption method (bits 4–7: 1 =
+    /// MDict's byte scrambler, 2 = Salsa20/8) and how many leading payload bytes are encrypted
+    /// (bits 8–15). Encrypted blocks occur in MDict 3.0; the key is the file's key or, without
+    /// one, RIPEMD-128 of the block's checksum bytes.
+    static func decodeBlock(_ block: Data, decompressedSize: Int, key: [UInt8]? = nil) throws -> Data {
         guard block.count >= 8 else { throw MDictError.corrupt("block shorter than its header") }
         let s = block.startIndex
-        let type = block[s]
-        guard block[s + 1] == 0, block[s + 2] == 0, block[s + 3] == 0 else {
-            throw MDictError.unsupported("unknown block compression type")
+        let info = UInt32(block[s]) | UInt32(block[s + 1]) << 8 | UInt32(block[s + 2]) << 16 | UInt32(block[s + 3]) << 24
+        let type = UInt8(info & 0xF)
+        let encryption = (info >> 4) & 0xF
+        let encryptedLength = Int((info >> 8) & 0xFF)
+        guard info >> 16 == 0 else { throw MDictError.unsupported("unknown block format") }
+        var payload = block.subdata(in: (s + 8)..<block.endIndex)
+        if encryption != 0 && encryptedLength > 0 && !payload.isEmpty {
+            let k = key ?? RIPEMD128.hash(Array(block[(s + 4)..<(s + 8)]))
+            var bytes = [UInt8](payload)
+            let n = min(encryptedLength, bytes.count)
+            let head = Array(bytes[0..<n])
+            let plain: [UInt8]
+            switch encryption {
+            case 1: plain = fastDecrypt(head, key: k)
+            case 2: plain = Salsa20.xor(head, key: k, rounds: 8)
+            default: throw MDictError.unsupported("block encryption method \(encryption)")
+            }
+            bytes.replaceSubrange(0..<n, with: plain)
+            payload = Data(bytes)
         }
-        let payload = block.subdata(in: (s + 8)..<block.endIndex)
         switch type {
         case 0:
             return payload

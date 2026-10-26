@@ -4,6 +4,10 @@
 
 ## [未发布]
 
+### 新增
+
+- 支持 MDict 3.0 格式（[#1](https://github.com/Andy7016/DictBridge-for-Mac/issues/1)）：UTF-8 文件头、新的分区结构，以及 3.0 的块加密（字节混淆和 Salsa20，密钥由文件头的 UUID 经 xxHash64 得出）。`.mdx` 和 `.mdd` 都支持。
+
 ### 维护
 
 - 新增 CHANGELOG（本文件）和 Issue 模板：转换问题、词典兼容性反馈、功能建议。

@@ -46,6 +46,10 @@ public final class MDictFile {
     private var textEncoding: String.Encoding
     private let isUTF16: Bool
     private var recordSectionOffset = 0
+    /// MDict 3.0: start of the record-data section (nil for 1.x/2.0 files).
+    private var v3RecordOffset: Int?
+    /// MDict 3.0: block key derived from the header's UUID (nil = per-block key).
+    private var blockKey: [UInt8]?
     /// Keys as raw bytes until the text encoding has been confirmed.
     private var rawKeys: [(offset: Int, bytes: [UInt8])] = []
     /// Encoding actually used for keys and records. Some dictionaries declare GBK/Big5
@@ -73,16 +77,24 @@ public final class MDictFile {
 
         var reader = ByteReader(fileData)
         let header = try MDictFile.readHeader(&reader, kind: kind)
-        guard header.engineVersion < 3.0 else {
-            throw MDictError.unsupported("MDict 3.0 format (engine \(header.engineVersion)) is not supported yet")
-        }
         let (enc, utf16) = MDictFile.stringEncoding(named: header.encodingName)
         self.textEncoding = enc
         self.isUTF16 = utf16
         self.numberWidth = header.engineVersion < 2.0 ? 4 : 8
         self.header = header
+        if header.engineVersion >= 3.0 {
+            self.blockKey = MDictFile.blockKey(uuid: header.attributes["UUID"])
+        }
 
         try readKeys(&reader)
+    }
+
+    /// MDict 3.0 block key: xxHash64 of each half of the UUID, concatenated (16 bytes).
+    static func blockKey(uuid: String?) -> [UInt8]? {
+        guard let uuid, !uuid.isEmpty else { return nil }
+        let bytes = Array(uuid.utf8)
+        let mid = (bytes.count + 1) / 2
+        return XXHash64.digest(Array(bytes[..<mid])) + XXHash64.digest(Array(bytes[mid...]))
     }
 
     // MARK: - Header helpers
@@ -108,13 +120,17 @@ public final class MDictFile {
         let headerBytes = try reader.bytes(headerSize)
         _ = try reader.uint32LE()  // adler32 of the header
 
-        guard var headerText = String(data: headerBytes, encoding: .utf16LittleEndian) else {
-            throw MDictError.invalidFile("header is not UTF-16")
-        }
-        while headerText.hasSuffix("\0") { headerText.removeLast() }
-        guard headerText.contains("<Dictionary") || headerText.contains("<Library_Data") else {
+        // 1.x/2.0 headers are UTF-16LE; MDict 3.0 writes them in UTF-8.
+        func looksLikeHeader(_ t: String) -> Bool { t.contains("<Dictionary") || t.contains("<Library_Data") }
+        var headerText = ""
+        if let t = String(data: headerBytes, encoding: .utf16LittleEndian), looksLikeHeader(t) {
+            headerText = t
+        } else if let t = String(data: headerBytes, encoding: .utf8), looksLikeHeader(t) {
+            headerText = t
+        } else {
             throw MDictError.invalidFile("missing <Dictionary> header")
         }
+        while headerText.hasSuffix("\0") { headerText.removeLast() }
         let attributes = parseAttributes(headerText)
 
         let version = Double(attributes["GeneratedByEngineVersion"] ?? "") ?? 2.0
@@ -136,7 +152,9 @@ public final class MDictFile {
         }
 
         let encodingName: String
-        if kind == .mdd {
+        if version >= 3.0 {
+            encodingName = "UTF-8"  // 3.0 stores keys and text in UTF-8, .mdd files included
+        } else if kind == .mdd {
             encodingName = "UTF-16"
         } else {
             let declared = (attributes["Encoding"] ?? "").trimmingCharacters(in: .whitespaces)
@@ -213,6 +231,10 @@ public final class MDictFile {
     // MARK: - Key index
 
     private func readKeys(_ reader: inout ByteReader) throws {
+        if header.engineVersion >= 3.0 {
+            try readKeysV3(&reader)
+            return
+        }
         let headerStart = reader.position
         if header.encrypted & 1 != 0 {
             // The 5 header numbers are encrypted with a registration key we do not have.
@@ -226,6 +248,46 @@ public final class MDictFile {
             reader.seek(to: headerStart)
             try readKeysWithoutHeader(&reader, headerStart: headerStart)
         }
+    }
+
+    /// MDict 3.0 section types (4-byte big-endian tag, then an 8-byte size).
+    private enum V3Section: UInt32 {
+        case recordData = 0x0100_0000, recordIndex = 0x0200_0000, keyData = 0x0300_0000, keyIndex = 0x0400_0000
+    }
+
+    /// MDict 3.0: the file after the header is a sequence of typed sections. Key data and
+    /// record data each hold `count`, a total, then blocks preceded by their decompressed
+    /// and stored sizes (4 bytes each).
+    private func readKeysV3(_ reader: inout ByteReader) throws {
+        var sections: [UInt32: Int] = [:]
+        while reader.remaining >= 12 {
+            let type = try reader.uint32BE()
+            let size = try reader.number(width: 8)
+            let start = reader.position
+            guard size >= 0, size <= reader.remaining else { throw MDictError.corrupt("MDict 3.0 section overruns the file") }
+            if sections[type] == nil { sections[type] = start }
+            reader.seek(to: start + size)
+        }
+        guard let keyData = sections[V3Section.keyData.rawValue],
+              let recordData = sections[V3Section.recordData.rawValue] else {
+            throw MDictError.corrupt("MDict 3.0 file without key or record data")
+        }
+        v3RecordOffset = recordData
+        var r = ByteReader(data, at: keyData)
+        let count = Int(try r.uint32BE())
+        _ = try r.number(width: 8)  // total size
+        for _ in 0..<count {
+            let block = try readV3Block(&r)
+            try splitKeyBlock([UInt8](block))
+        }
+        finishKeys()
+    }
+
+    private func readV3Block(_ r: inout ByteReader) throws -> Data {
+        let decompressed = Int(try r.uint32BE())
+        let stored = Int(try r.uint32BE())
+        let raw = try r.bytes(stored)
+        return try MDictCodec.decodeBlock(raw, decompressedSize: decompressed, key: blockKey)
     }
 
     private func readKeysNormally(_ reader: inout ByteReader) throws {
@@ -449,6 +511,18 @@ public final class MDictFile {
 
     /// Calls `body` for every record in storage order. Return `false` from `body` to stop.
     public func forEachRecord(_ body: (_ index: Int, _ key: String, _ record: Data) throws -> Bool) throws {
+        var blockStart = 0  // offset of the current block in the concatenated record data
+        var i = 0
+        if let offset = v3RecordOffset {
+            var r = ByteReader(data, at: offset)
+            let count = Int(try r.uint32BE())
+            _ = try r.number(width: 8)  // total size
+            for _ in 0..<count {
+                let block = try readV3Block(&r)
+                if try !emitRecords(of: block, blockStart: &blockStart, next: &i, body) { return }
+            }
+            return
+        }
         var reader = ByteReader(data, at: recordSectionOffset)
         let blockCount = try reader.number(width: numberWidth)
         _ = try reader.number(width: numberWidth)  // number of entries
@@ -462,25 +536,30 @@ public final class MDictFile {
             infos.append((c, d))
         }
 
-        var blockStart = 0  // offset of the current block in the concatenated record data
-        var i = 0
         for (compressed, decompressed) in infos {
             let raw = try reader.bytes(compressed)
             let block = try MDictCodec.decodeBlock(raw, decompressedSize: decompressed)
-            let blockEnd = blockStart + block.count
-            while i < keys.count {
-                let start = keys[i].offset
-                if start >= blockEnd { break }
-                let end = min(recordEnds[i], blockEnd)
-                let s = start - blockStart
-                let e = end - blockStart
-                guard s >= 0, e >= s else { throw MDictError.corrupt("record offsets out of order") }
-                let record = block.subdata(in: (block.startIndex + s)..<(block.startIndex + e))
-                if try !body(i, keys[i].text, record) { return }
-                i += 1
-            }
-            blockStart = blockEnd
+            if try !emitRecords(of: block, blockStart: &blockStart, next: &i, body) { return }
         }
+    }
+
+    /// Hands the records that start in `block` to `body`. Returns false if `body` asked to stop.
+    private func emitRecords(of block: Data, blockStart: inout Int, next i: inout Int,
+                             _ body: (_ index: Int, _ key: String, _ record: Data) throws -> Bool) throws -> Bool {
+        let blockEnd = blockStart + block.count
+        while i < keys.count {
+            let start = keys[i].offset
+            if start >= blockEnd { break }
+            let end = min(recordEnds[i], blockEnd)
+            let s = start - blockStart
+            let e = end - blockStart
+            guard s >= 0, e >= s else { throw MDictError.corrupt("record offsets out of order") }
+            let record = block.subdata(in: (block.startIndex + s)..<(block.startIndex + e))
+            if try !body(i, keys[i].text, record) { return false }
+            i += 1
+        }
+        blockStart = blockEnd
+        return true
     }
 
     /// Decodes an `.mdx` record into text (strips the trailing NUL, applies the header style sheet).
