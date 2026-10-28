@@ -200,6 +200,20 @@ public struct DDKToolkit {
             removexattr(binDirectory.appendingPathComponent(file).path, "com.apple.quarantine", 0)
         }
         let objects = workDirectory.appendingPathComponent("objects", isDirectory: true)
+        // build_dict.sh copies resources with `cp OtherResources/* …`. Dictionaries that keep
+        // hundreds of thousands of audio files at the top of their .mdd overflow ARG_MAX there,
+        // so the folder is hidden from the script and moved into the bundle afterwards (which
+        // also saves copying gigabytes of audio).
+        let fm = FileManager.default
+        let resources = workDirectory.appendingPathComponent("OtherResources", isDirectory: true)
+        let pending = workDirectory.appendingPathComponent("OtherResources.pending", isDirectory: true)
+        let hasResources = fm.fileExists(atPath: resources.path)
+        if hasResources {
+            try? fm.removeItem(at: pending)
+            try fm.moveItem(at: resources, to: pending)
+            // An empty folder makes the script skip the copy quietly (a missing one makes `ls` complain).
+            try fm.createDirectory(at: resources, withIntermediateDirectories: false)
+        }
         var env = ProcessInfo.processInfo.environment
         env["DICT_DEV_KIT_OBJ_DIR"] = objects.path
         env["PATH"] = "/usr/bin:/bin:/usr/sbin:/sbin"
@@ -227,6 +241,31 @@ public struct DDKToolkit {
         guard status == 0, FileManager.default.fileExists(atPath: result.path) else {
             throw DDKError.buildFailed(tail.suffix(15).joined(separator: "\n"))
         }
+        if hasResources {
+            log("- Moving other resources.")
+            try Self.merge(pending, into: result.appendingPathComponent("Contents/Resources", isDirectory: true))
+        }
         return result
+    }
+
+    /// Moves every item in `source` into `destination`, merging folders that exist in both and
+    /// replacing files (what `cp -Rf source/* destination` does, without the argument list).
+    static func merge(_ source: URL, into destination: URL) throws {
+        let fm = FileManager.default
+        try fm.createDirectory(at: destination, withIntermediateDirectories: true)
+        for name in try fm.contentsOfDirectory(atPath: source.path) {
+            let from = source.appendingPathComponent(name)
+            let to = destination.appendingPathComponent(name)
+            var fromIsDir: ObjCBool = false, toIsDir: ObjCBool = false
+            fm.fileExists(atPath: from.path, isDirectory: &fromIsDir)
+            if fm.fileExists(atPath: to.path, isDirectory: &toIsDir) {
+                if fromIsDir.boolValue && toIsDir.boolValue {
+                    try merge(from, into: to)
+                    continue
+                }
+                try fm.removeItem(at: to)
+            }
+            try fm.moveItem(at: from, to: to)
+        }
     }
 }

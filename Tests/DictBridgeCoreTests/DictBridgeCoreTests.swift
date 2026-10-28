@@ -317,3 +317,35 @@ final class StylesheetChoiceTests: XCTestCase {
         XCTAssertEqual(chosen, ["custom.css"])
     }
 }
+
+final class ResourceMergeTests: XCTestCase {
+    func testMergesFoldersAndReplacesFiles() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("dictbridge-merge-\(UUID().uuidString)")
+        defer { try? fm.removeItem(at: root) }
+        let src = root.appendingPathComponent("src"), dst = root.appendingPathComponent("dst")
+        func write(_ url: URL, _ path: String, _ text: String) throws {
+            let file = url.appendingPathComponent(path)
+            try fm.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data(text.utf8).write(to: file)
+        }
+        try write(dst, "Body.data", "body")
+        try write(dst, "img/old.png", "old")
+        try write(dst, "a.css", "stale")
+        for i in 0..<500 { try write(src, "\(i).mp3", "\(i)") }
+        try write(src, "img/new.png", "new")
+        try write(src, "a.css", "fresh")
+
+        try DDKToolkit.merge(src, into: dst)
+
+        func read(_ path: String) -> String? {
+            (try? Data(contentsOf: dst.appendingPathComponent(path))).map { String(decoding: $0, as: UTF8.self) }
+        }
+        XCTAssertEqual(read("Body.data"), "body")
+        XCTAssertEqual(read("img/old.png"), "old")
+        XCTAssertEqual(read("img/new.png"), "new")
+        XCTAssertEqual(read("a.css"), "fresh")
+        XCTAssertEqual(read("499.mp3"), "499")
+        XCTAssertEqual(try fm.contentsOfDirectory(atPath: src.path), [])
+    }
+}
