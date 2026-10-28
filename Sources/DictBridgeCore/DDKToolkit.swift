@@ -261,6 +261,7 @@ public struct DDKToolkit {
             if fm.fileExists(atPath: to.path, isDirectory: &toIsDir) {
                 if fromIsDir.boolValue && toIsDir.boolValue {
                     try merge(from, into: to)
+                    try fm.removeItem(at: from)
                     continue
                 }
                 try fm.removeItem(at: to)
