@@ -4,6 +4,8 @@
 
 ## [未发布]
 
+## [0.4.0] - 2026-10-30
+
 ### 新增
 
 - 支持 MDict 3.0 格式（[#1](https://github.com/Andy7016/DictBridge-for-Mac/issues/1)）：UTF-8 文件头、新的分区结构，以及 3.0 的块加密（字节混淆和 Salsa20，密钥由文件头的 UUID 经 xxHash64 得出）。`.mdx` 和 `.mdd` 都支持。
@@ -63,5 +65,6 @@
 - 命令行工具 `dictbridge`（`convert`、`list`、`remove`、`info`、`ddk`）。
 - GitHub Actions：编译、单元测试、用真实 DDK 端到端转换测试词典、打包 universal `.app` / `.zip` / `.dmg`；发布 Release 时自动附加安装包，带后缀的标签（如 `v1.0.0-beta.1`）标为预发布。
 
-[未发布]: https://github.com/Andy7016/DictBridge-for-Mac/compare/v0.3.0...HEAD
+[未发布]: https://github.com/Andy7016/DictBridge-for-Mac/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Andy7016/DictBridge-for-Mac/releases/tag/v0.4.0
 [0.3.0]: https://github.com/Andy7016/DictBridge-for-Mac/releases/tag/v0.3.0

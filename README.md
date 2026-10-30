@@ -92,6 +92,8 @@ DictBridge 负责格式转换。把 `.mdx` 拖进窗口，它会读出词条、�
 | Stedman's Medical Dictionary | 没有样式表的纯文本词典 |
 | 柯林斯英语同义词字典（Collins Thesaurus） | MDict 1.2、GBK 编码 |
 
+另外，0.4.0 发布前用 `scripts/compat-test.sh` 把 47 部常见的 MDict 词典完整转换了一遍（只转换，不装进「词典」App），全部成功。其中包括牛津高阶英汉双解第 9、10 版，单部有 25 万到 28 万个资源文件，转换后约 3 GB。
+
 转换了别的词典？不管成功还是出了问题，都欢迎[提 Issue](../../issues/new/choose) 告诉我们。
 
 ### 命令行

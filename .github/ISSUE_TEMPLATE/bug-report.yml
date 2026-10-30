@@ -70,7 +70,7 @@ body:
     attributes:
       label: DictBridge 版本 / DictBridge version
       description: 菜单栏 DictBridge →「关于 DictBridge」/ DictBridge → About DictBridge
-      placeholder: "0.3.0"
+      placeholder: "0.4.0"
     validations:
       required: true
 
