@@ -117,6 +117,21 @@ public final class Converter: @unchecked Sendable {
         return map
     }
 
+    /// Disk space the files extracted from an `.mdd` take: the record lengths from its index,
+    /// rounded up to whole 4 KB file-system blocks (many resources are tiny). Audio counts only
+    /// when it is included. The last record, whose length the index does not give, is left out.
+    static func extractedSize(of keys: [MDictKey], includeAudio: Bool) -> Int64 {
+        var total: Int64 = 0
+        // Keys are in record order; a record runs up to the next key's offset.
+        for (key, next) in zip(keys, keys.dropFirst()) {
+            let length = next.offset - key.offset
+            guard length > 0 else { continue }  // keys that share one record
+            if !includeAudio && audioExtensions.contains((key.text as NSString).pathExtension.lowercased()) { continue }
+            total += Int64((length + 4095) / 4096 * 4096)
+        }
+        return total
+    }
+
     public init(source: SourceDictionary, options: ConversionOptions, toolkit: DDKToolkit) {
         self.source = source
         self.options = options
@@ -161,13 +176,13 @@ public final class Converter: @unchecked Sendable {
             log("warning: " + message)
         }
 
-        let workDir = DictBridge.cacheDirectory.appendingPathComponent("build-\(UUID().uuidString)", isDirectory: true)
-        try fm.createDirectory(at: workDir, withIntermediateDirectories: true)
-        defer {
-            if !options.keepWorkDirectory { try? fm.removeItem(at: workDir) }
-        }
+        let leftovers = WorkDirectory.removeLeftovers()
+        let work = try WorkDirectory()
+        let workDir = work.url
+        defer { work.finish(keep: options.keepWorkDirectory) }
         log("DictBridge \(DictBridge.version) — converting \(source.mdx.lastPathComponent)")
         log("work directory: \(workDir.path)")
+        if leftovers > 0 { log("removed \(leftovers) build folders left behind by unfinished conversions") }
 
         // 1. Index: headwords and @@@LINK redirects -------------------------------------
         report(.indexing, 0, source.mdx.lastPathComponent)
@@ -201,11 +216,11 @@ public final class Converter: @unchecked Sendable {
         let (aliases, unresolvedRedirects) = resolver.aliasesByEntry()
         log("\(headwords.count) entries, \(redirects.count) redirects (\(unresolvedRedirects) point nowhere)")
 
-        // Disk space: sources + DDK intermediates (~3x text) + resources copied twice.
-        let resourceBytes = source.mdds.reduce(Int64(0)) { sum, url in
-            sum + (((try? fm.attributesOfItem(atPath: url.path))?[.size] as? NSNumber)?.int64Value ?? 0)
-        }
-        let needed = Int64(textBytes) * 4 + resourceBytes * 2 + 300_000_000
+        // Disk space: the entries' XHTML plus the DDK's intermediates (~3x the text), and the
+        // resources, which are extracted once and then moved (not copied) into the bundle.
+        var mdds = try source.mdds.map { try MDictFile(url: $0) }
+        let resourceBytes = mdds.reduce(Int64(0)) { $0 + Self.extractedSize(of: $1.keys, includeAudio: options.includeAudio) }
+        let needed = Int64(textBytes) * 4 + resourceBytes + 300_000_000
         if let values = try? workDir.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]),
            let available = values.volumeAvailableCapacityForImportantUsage, available < needed {
             throw ConversionError.notEnoughSpace(needed: needed, available: available)
@@ -262,8 +277,8 @@ public final class Converter: @unchecked Sendable {
         for url in source.stylesheets + source.scripts + source.looseResources {
             if let data = try? Data(contentsOf: url) { try store(url.lastPathComponent, data) }
         }
-        for (n, mddURL) in source.mdds.enumerated() {
-            let mdd = try MDictFile(url: mddURL)
+        for (n, mdd) in mdds.enumerated() {
+            let mddURL = mdd.url
             log("\(mddURL.lastPathComponent): \(mdd.entryCount) resources")
             let count = max(1, mdd.entryCount)
             var failure: Error?
@@ -279,6 +294,7 @@ public final class Converter: @unchecked Sendable {
             if let failure { throw failure }
             try checkCancelled()
         }
+        mdds.removeAll()  // unmap the .mdd files before the long build
         if skippedAudio > 0 { log("left out \(skippedAudio) audio files (audio disabled)") }
         log("\(resourceCount) resource files, \(stylesheets.count) style sheets, \(scriptCount) scripts")
 
@@ -413,10 +429,15 @@ public final class Converter: @unchecked Sendable {
             frontMatter: true)
 
         // 5. Apple's build tool ----------------------------------------------------------
-        try checkCancelled()
-        report(.compiling, 0.45, "")
+        // Hand the runner over and check for cancellation under one lock, so a cancel() either
+        // finds the runner and stops it, or came first and is caught here.
         let runner = ProcessRunner()
-        lock.lock(); self.runner = runner; lock.unlock()
+        lock.lock()
+        self.runner = runner
+        let cancelledEarlier = cancelled
+        lock.unlock()
+        if cancelledEarlier { throw ConversionError.cancelled }
+        report(.compiling, 0.45, "")
         let built: URL
         do {
             built = try toolkit.build(

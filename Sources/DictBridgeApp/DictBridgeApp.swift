@@ -30,6 +30,8 @@ struct DictBridgeApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pendingFiles: [URL] = []
+    /// Set while quitting waits for the cancelled conversion to wind down.
+    private var quitting = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // When run straight from `swift run`, make sure we get a Dock icon and focus.
@@ -42,7 +44,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         flushPendingFiles()
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    // Closing the window does not stop a conversion (the Dock icon brings the window back);
+    // the app quits when the conversion ends instead.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        AppModel.shared?.job?.isRunning != true
+    }
+
+    /// Quitting during a conversion asks first, then cancels the conversion and quits once Apple's
+    /// build tool has stopped and the work folder is gone. Quitting at once would leave both behind.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let model = AppModel.shared, let job = model.job, job.isRunning else { return .terminateNow }
+        if quitting { return .terminateCancel }
+        let alert = NSAlert()
+        alert.messageText = L.quitWhileConverting(job.name)
+        alert.informativeText = L.quitWhileConvertingDetail
+        alert.addButton(withTitle: L.quitAndCancel)
+        alert.addButton(withTitle: L.keepConverting).keyEquivalent = "\u{1b}"
+        guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
+        quitting = true
+        Task {
+            await model.cancelConversionAndWait()
+            NSApp.terminate(nil)
+        }
+        return .terminateCancel
+    }
 
     func flushPendingFiles() {
         guard !pendingFiles.isEmpty, let model = AppModel.shared else { return }

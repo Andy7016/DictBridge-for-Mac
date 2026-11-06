@@ -48,12 +48,16 @@ final class AppModel: ObservableObject {
     @Published var dropTargeted = false
 
     private var converter: Converter?
+    /// The running conversion, so that quitting can wait for it to stop and clean up.
+    private var conversionTask: Task<Void, Never>?
     /// Import to start right after the DDK setup sheet succeeds.
     private var importAfterSetup: PendingImport?
 
     init() {
         AppModel.shared = self
         refresh()
+        // Build folders of conversions that never finished (force quit, crash).
+        Task.detached(priority: .utility) { WorkDirectory.removeLeftovers() }
     }
 
     // MARK: Library
@@ -148,7 +152,7 @@ final class AppModel: ObservableObject {
             if let count = self.job?.log.count, count > 3000 { self.job?.log.removeFirst(count - 3000) }
         }
 
-        Task.detached(priority: .userInitiated) {
+        conversionTask = Task.detached(priority: .userInitiated) {
             let outcome: Result<ConversionReport, Error>
             do {
                 outcome = .success(try converter.run(progress: { progressSink.send($0) }, log: { logSink.send($0) }))
@@ -184,12 +188,24 @@ final class AppModel: ObservableObject {
                     }
                 }
                 self.converter = nil
+                self.conversionTask = nil
                 self.refresh()
+                // The window was closed during the conversion: quit now, as closing it would have.
+                if !NSApp.isHidden && !NSApp.windows.contains(where: { $0.isVisible || $0.isMiniaturized }) {
+                    NSApp.terminate(nil)
+                }
             }
         }
     }
 
     func cancelConversion() { converter?.cancel() }
+
+    /// Cancels the running conversion and returns once it has stopped (Apple's build tool
+    /// included) and removed its work folder.
+    func cancelConversionAndWait() async {
+        converter?.cancel()
+        await conversionTask?.value
+    }
 
     func dismissJob() { if job?.isRunning != true { job = nil } }
 

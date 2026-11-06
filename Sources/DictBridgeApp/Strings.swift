@@ -62,6 +62,14 @@ enum L {
     static func failed(_ name: String) -> String { t("Could not convert “\(name)”", "「\(name)」转换失败") }
     static var log: String { t("Log", "日志") }
     static var copyLog: String { t("Copy Log", "复制日志") }
+    static func quitWhileConverting(_ name: String) -> String {
+        t("“\(name)” is still being converted.", "「\(name)」还在转换中。")
+    }
+    static var quitWhileConvertingDetail: String {
+        t("Quitting cancels the conversion and removes its temporary files.", "退出会取消这次转换，并删除转换用的临时文件。")
+    }
+    static var quitAndCancel: String { t("Cancel Conversion and Quit", "取消转换并退出") }
+    static var keepConverting: String { t("Keep Converting", "继续转换") }
     static func summary(entries: Int, keys: Int, seconds: Double) -> String {
         t("\(entries) entries, \(keys) search keys, \(Int(seconds)) s",
           "\(entries) 个词条，\(keys) 个检索词，用时 \(Int(seconds)) 秒")

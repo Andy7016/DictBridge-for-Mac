@@ -123,7 +123,7 @@ dictbridge ddk --download                                        # 下载苹果�
 | `--no-chinese-variants` | 不加简繁互查的检索词 |
 | `--headword auto\|always\|never` | 是否在词条顶部补上词头 |
 | `--no-install --output <文件夹>` | 只生成 `.dictionary`，不安装 |
-| `--keep-work` | 保留中间文件，方便排查问题 |
+| `--keep-work` | 保留中间文件，方便排查问题（7 天后自动清理） |
 
 运行 `dictbridge help` 查看全部选项。
 

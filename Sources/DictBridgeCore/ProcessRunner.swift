@@ -98,8 +98,20 @@ final class ProcessRunner: @unchecked Sendable {
             }
         }
 
-        if isCancelled { throw CancellationError() }
-        try process.run()
+        // Start under the lock, so a cancel() either came first (and is caught here) or finds
+        // the process running and stops it.
+        lock.lock()
+        if cancelled {
+            lock.unlock()
+            throw CancellationError()
+        }
+        do {
+            try process.run()
+        } catch {
+            lock.unlock()
+            throw error
+        }
+        lock.unlock()
         process.waitUntilExit()
         _ = done.wait(timeout: .now() + 10)
         if isCancelled { throw CancellationError() }
