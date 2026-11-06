@@ -1,5 +1,6 @@
 import XCTest
 @testable import DictBridgeCore
+@testable import MDictKit
 
 final class HTMLTransformerTests: XCTestCase {
 
@@ -347,5 +348,61 @@ final class ResourceMergeTests: XCTestCase {
         XCTAssertEqual(read("a.css"), "fresh")
         XCTAssertEqual(read("499.mp3"), "499")
         XCTAssertEqual(try fm.contentsOfDirectory(atPath: src.path), [])
+    }
+}
+
+final class WorkDirectoryTests: XCTestCase {
+    func testLeftoversAreRemovedAndFoldersInUseKept() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("dictbridge-work-\(UUID().uuidString)")
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        func folder(_ name: String, lockFile: Bool, age: TimeInterval) throws -> URL {
+            let url = root.appendingPathComponent(name)
+            try fm.createDirectory(at: url, withIntermediateDirectories: true)
+            if lockFile { fm.createFile(atPath: url.appendingPathComponent(WorkDirectory.lockName).path, contents: nil) }
+            try fm.setAttributes([.modificationDate: Date().addingTimeInterval(-age)], ofItemAtPath: url.path)
+            return url
+        }
+        // The lock is held through another descriptor of this process, as when the app cleans
+        // up at launch while a conversion runs.
+        let inUse = try WorkDirectory(in: root)
+        let abandoned = try folder("build-abandoned", lockFile: true, age: 0)
+        let kept = try folder("build-kept", lockFile: false, age: 3600)
+        let old = try folder("build-old", lockFile: false, age: 8 * 24 * 3600)
+        let other = try folder("other", lockFile: false, age: 30 * 24 * 3600)
+
+        XCTAssertEqual(WorkDirectory.removeLeftovers(in: root), 2)
+        XCTAssertTrue(fm.fileExists(atPath: inUse.url.path))
+        XCTAssertFalse(fm.fileExists(atPath: abandoned.path))
+        XCTAssertTrue(fm.fileExists(atPath: kept.path))
+        XCTAssertFalse(fm.fileExists(atPath: old.path))
+        XCTAssertTrue(fm.fileExists(atPath: other.path))
+
+        // --keep-work: the folder stays, without its lock file, and is not a leftover yet.
+        inUse.finish(keep: true)
+        XCTAssertFalse(fm.fileExists(atPath: inUse.url.appendingPathComponent(WorkDirectory.lockName).path))
+        XCTAssertEqual(WorkDirectory.removeLeftovers(in: root), 0)
+        XCTAssertTrue(fm.fileExists(atPath: inUse.url.path))
+
+        let finished = try WorkDirectory(in: root)
+        finished.finish(keep: false)
+        XCTAssertFalse(fm.fileExists(atPath: finished.url.path))
+    }
+}
+
+final class DiskEstimateTests: XCTestCase {
+    func testExtractedSizeCountsRecordsInWholeBlocks() {
+        let keys = [
+            MDictKey(text: "\\a.css", offset: 0),             // 100 bytes: 1 block
+            MDictKey(text: "\\img\\b.png", offset: 100),      // 5,000 bytes: 2 blocks
+            MDictKey(text: "\\img\\c.png", offset: 5_100),    // shares its record with the next key
+            MDictKey(text: "\\img\\c2.png", offset: 5_100),   // 10,000 bytes: 3 blocks
+            MDictKey(text: "\\snd\\d.mp3", offset: 15_100),   // 20,000 bytes: 5 blocks
+            MDictKey(text: "\\snd\\e.mp3", offset: 35_100),   // last record: length unknown
+        ]
+        XCTAssertEqual(Converter.extractedSize(of: keys, includeAudio: true), 11 * 4096)
+        XCTAssertEqual(Converter.extractedSize(of: keys, includeAudio: false), 6 * 4096)
+        XCTAssertEqual(Converter.extractedSize(of: [], includeAudio: true), 0)
     }
 }

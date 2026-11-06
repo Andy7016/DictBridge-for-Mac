@@ -23,7 +23,7 @@ CONVERT OPTIONS
                        do not add Simplified/Traditional counterparts of Chinese headwords
   --no-install         do not install; save the .dictionary next to the .mdx (or --output)
   --output <folder>    where to save the .dictionary with --no-install
-  --keep-work          keep the intermediate build folder (for debugging)
+  --keep-work          keep the intermediate build folder (for debugging; removed after 7 days)
   --no-restart         do not restart Dictionary.app after installing
 
 """
@@ -188,7 +188,7 @@ case "info":
         let file = try MDictFile(url: URL(fileURLWithPath: path))
         out("Title:      \(file.header.title)")
         out("Engine:     \(file.header.engineVersion)")
-        out("Encoding:   \(file.header.encodingName)")
+        out("Encoding:   \(file.effectiveEncodingName)")
         out("Encrypted:  \(file.header.encrypted)")
         out("Keys:       \(file.entryCount)")
         var shown = 0
