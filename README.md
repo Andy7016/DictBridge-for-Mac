@@ -146,7 +146,10 @@ DictBridge 会自动启用新词典并重启「词典」App。如果还是没看
 「词典」App 的显示引擎和 MDict 软件不完全相同，个别样式可能有出入。反馈时请附上出问题的词条截图和 App 里的日志（转换完成后展开「日志」，选中里面的文字复制）。
 
 **转换失败，或者一直卡住不动？**
-词条很多的词典，「苹果工具编译」这一步会比较久，可以参考上面的用时表。如果明显超出、进度一直没有变化，先点「取消」，再点「复制日志」；转换失败时直接点「复制日志」。然后用[「转换失败或显示异常」模板](../../issues/new/choose)提 Issue，附上日志、词典名称和版本，以及各个文件的大小。
+词条很多的词典，「苹果工具编译」这一步会比较久，可以参考上面的用时表。这个阶段会显示当前进行到哪一步和已经用了多久，只要计时在走，就说明还在进行。如果用时明显超出、步骤也一直不变，先点「取消」，再点「复制日志」；转换失败时直接点「复制日志」。然后用[「转换失败或显示异常」模板](../../issues/new/choose)提 Issue，附上日志、词典名称和版本，以及各个文件的大小。
+
+**DictBridge 会联网吗？**
+只有两种情况：第一次转换前下载苹果的词典开发工具；启动时查看 GitHub 上有没有新版本（每天最多一次，可以在菜单「DictBridge → 自动检查更新」里关掉）。两者都不上传任何信息，词典内容只在本机处理。
 
 ## 已知限制
 
@@ -199,6 +202,7 @@ But it only reads Apple's `.dictionary` bundles, not the MDict dictionaries most
 - Handles Dictionary.app quirks: lost spaces, clickable expanders, playable audio. In the force-click popover, which shows only the start of each entry and ignores clicks, buttons and speaker icons are hidden so the definition comes first. See [docs/how-it-works.md](docs/how-it-works.md).
 - Uses only the style sheets the entries link to, and keeps one shared copy of each script.
 - Supports MDict 1.2, 2.0 and 3.0; UTF-8, UTF-16, GBK and Big5 encodings; zlib and LZO compression; encrypted key index (`Encrypted="2"`), and MDict 3.0's encrypted blocks.
+- Checks GitHub for a new release at launch (at most once a day; can be turned off in the DictBridge menu). Nothing is uploaded.
 - Includes a `dictbridge` command-line tool (`DictBridge.app/Contents/Resources/dictbridge`; run `dictbridge help`).
 
 **Install.** Download the `.dmg` from [Releases](../../releases/latest). The app is not notarized yet, so on first launch go to System Settings → Privacy & Security → *Open Anyway*, or run `xattr -dr com.apple.quarantine /Applications/DictBridge.app`.

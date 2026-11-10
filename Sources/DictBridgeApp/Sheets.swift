@@ -114,9 +114,27 @@ struct JobView: View {
                         stageLabel(stage)
                     }
                     Spacer()
-                    if !job.detail.isEmpty {
-                        Text(job.detail).font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                }
+                // Apple's build tool reports nothing within a step, and one step can take many
+                // minutes on a large dictionary: the running clock shows it has not stalled.
+                TimelineView(.periodic(from: job.started, by: 1)) { context in
+                    HStack(spacing: 8) {
+                        if job.stage == .compiling {
+                            Text(L.compileStatus(step: L.buildStep(job.detail),
+                                                 time: Self.clock(context.date.timeIntervalSince(job.stageStarted))))
+                        } else if !job.detail.isEmpty {
+                            Text(job.detail)
+                        }
+                        Spacer()
+                        Text(L.elapsed(Self.clock(context.date.timeIntervalSince(job.started))))
                     }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                }
+                if job.stage == .compiling {
+                    Text(L.compileHint).font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             case .succeeded(let report):
                 Text(L.summary(entries: report.entries, keys: report.searchKeys, seconds: report.seconds))
@@ -144,6 +162,13 @@ struct JobView: View {
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.07)))
+    }
+
+    /// `3:07`, or `1:02:45` from an hour on.
+    static func clock(_ interval: TimeInterval) -> String {
+        let total = max(0, Int(interval))
+        let (h, m, s) = (total / 3600, total / 60 % 60, total % 60)
+        return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
     }
 
     private var title: String {

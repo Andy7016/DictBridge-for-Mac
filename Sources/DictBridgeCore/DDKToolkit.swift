@@ -175,6 +175,7 @@ public struct DDKToolkit {
     }
 
     /// Progress markers printed by `build_dict.sh`, with the fraction of the build they start.
+    /// The marker without its leading "- " is reported as the name of the step.
     static let buildMilestones: [(String, Double)] = [
         ("- Checking source", 0.02),
         ("- Preprocessing dictionary sources", 0.08),
@@ -189,10 +190,13 @@ public struct DDKToolkit {
         ("- Finished building", 1.0),
     ]
 
+    /// Step reported while the resources are moved into the finished bundle.
+    public static let movingResourcesStep = "Moving other resources"
+
     /// Runs `build_dict.sh` in `workDirectory` (which must contain `OtherResources/` if any).
     /// - Returns: URL of the built `<name>.dictionary` bundle.
     func build(name: String, workDirectory: URL, xml: String, css: String, plist: String,
-               runner: ProcessRunner, progress: @escaping (Double) -> Void,
+               runner: ProcessRunner, progress: @escaping (_ fraction: Double, _ step: String) -> Void,
                log: @escaping (String) -> Void) throws -> URL {
         try Self.checkSystemTools()
         // Files we downloaded ourselves carry no quarantine flag, but a user-supplied copy might.
@@ -233,7 +237,7 @@ public struct DDKToolkit {
             if tail.count > 40 { tail.removeFirst() }
             log(line)
             for (marker, fraction) in Self.buildMilestones where line.hasPrefix(marker) {
-                progress(fraction)
+                progress(fraction, String(marker.dropFirst(2)))
             }
         }
         if duplicates > 0 { log("(\(duplicates) duplicate index keys merged)") }
@@ -243,6 +247,7 @@ public struct DDKToolkit {
         }
         if hasResources {
             log("- Moving other resources.")
+            progress(1, Self.movingResourcesStep)
             try Self.merge(pending, into: result.appendingPathComponent("Contents/Resources", isDirectory: true))
         }
         return result

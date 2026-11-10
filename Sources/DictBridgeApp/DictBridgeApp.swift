@@ -19,6 +19,12 @@ struct DictBridgeApp: App {
                 Button(L.addDictionary) { model.showImporter = true }
                     .keyboardShortcut("o")
             }
+            CommandGroup(after: .appInfo) {
+                Button(L.checkForUpdates) { model.checkForUpdates() }
+                    .disabled(model.checkingForUpdates)
+                Toggle(L.autoCheckUpdates, isOn: Binding(get: { model.autoCheckUpdates },
+                                                         set: { model.autoCheckUpdates = $0 }))
+            }
             CommandGroup(after: .help) {
                 Link("DictBridge on GitHub", destination: URL(string: "https://github.com/Andy7016/DictBridge-for-Mac")!)
             }

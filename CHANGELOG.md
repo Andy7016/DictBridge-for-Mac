@@ -4,6 +4,16 @@
 
 ## [未发布]
 
+## [0.4.1] - 2026-11-10
+
+### 新增
+
+- 检查更新：启动时查看 GitHub 上有没有新版本（每天最多一次），有的话在窗口顶部提示并给出下载页链接。菜单「DictBridge → 检查更新…」可以随时手动检查，「自动检查更新」可以关掉。只是向 GitHub 的公开接口发一次请求，不上传任何信息。
+
+### 改进
+
+- 转换时显示总用时。「苹果工具编译」阶段还会显示当前进行到哪一步（预处理词条、建立检索索引等）和这个阶段已经用了多久，并说明大词典在这一步会比较慢，方便判断是还在进行还是真的卡住了。
+
 ### 修复
 
 - 转换进行中退出 App（⌘Q）会先询问；确认后先取消转换，等苹果编译工具停下、临时文件删掉再退出。以前会留下仍在运行的编译进程和几 GB 的临时文件。转换中关掉窗口不再退出 App，转换继续进行，点 Dock 图标可以重新打开窗口，转换结束后 App 自动退出。
@@ -73,6 +83,7 @@
 - 命令行工具 `dictbridge`（`convert`、`list`、`remove`、`info`、`ddk`）。
 - GitHub Actions：编译、单元测试、用真实 DDK 端到端转换测试词典、打包 universal `.app` / `.zip` / `.dmg`；发布 Release 时自动附加安装包，带后缀的标签（如 `v1.0.0-beta.1`）标为预发布。
 
-[未发布]: https://github.com/Andy7016/DictBridge-for-Mac/compare/v0.4.0...HEAD
+[未发布]: https://github.com/Andy7016/DictBridge-for-Mac/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/Andy7016/DictBridge-for-Mac/releases/tag/v0.4.1
 [0.4.0]: https://github.com/Andy7016/DictBridge-for-Mac/releases/tag/v0.4.0
 [0.3.0]: https://github.com/Andy7016/DictBridge-for-Mac/releases/tag/v0.3.0

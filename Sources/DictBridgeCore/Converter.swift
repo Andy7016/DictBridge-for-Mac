@@ -49,6 +49,8 @@ public struct ConversionProgress: Sendable {
     public var stage: ConversionStage
     /// Overall progress 0...1.
     public var fraction: Double
+    /// Extra text for the stage. While compiling it is the current step of Apple's build tool
+    /// in English (for example "Building key_text index"), empty until the first step starts.
     public var detail: String
 }
 
@@ -443,7 +445,7 @@ public final class Converter: @unchecked Sendable {
             built = try toolkit.build(
                 name: bundleName, workDirectory: workDir, xml: "dict.xml", css: "dict.css", plist: "dict.plist",
                 runner: runner,
-                progress: { f in report(.compiling, 0.45 + 0.52 * f, "") },
+                progress: { f, step in report(.compiling, 0.45 + 0.52 * f, step) },
                 log: log)
         } catch {
             if error is CancellationError || isCancelled { throw ConversionError.cancelled }

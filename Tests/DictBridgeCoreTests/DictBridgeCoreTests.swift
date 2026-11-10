@@ -406,3 +406,45 @@ final class DiskEstimateTests: XCTestCase {
         XCTAssertEqual(Converter.extractedSize(of: [], includeAudio: true), 0)
     }
 }
+
+final class UpdateCheckerTests: XCTestCase {
+    func testVersionComparison() {
+        XCTAssertTrue(UpdateChecker.isNewer("v0.4.1", than: "0.4.0"))
+        XCTAssertTrue(UpdateChecker.isNewer("0.10.0", than: "0.9.9"))
+        XCTAssertTrue(UpdateChecker.isNewer("1.0", than: "0.9.9"))
+        XCTAssertTrue(UpdateChecker.isNewer("0.4.0.1", than: "0.4.0"))
+        XCTAssertFalse(UpdateChecker.isNewer("v0.4.0", than: "0.4.0"))
+        XCTAssertFalse(UpdateChecker.isNewer("0.4", than: "0.4.0"))
+        XCTAssertFalse(UpdateChecker.isNewer("0.3.9", than: "0.4.0"))
+        XCTAssertFalse(UpdateChecker.isNewer("v0.4.1-beta.1", than: "0.4.1"))
+        XCTAssertFalse(UpdateChecker.isNewer("latest", than: "0.4.0"))
+        XCTAssertFalse(UpdateChecker.isNewer("", than: "0.4.0"))
+        XCTAssertFalse(UpdateChecker.isNewer("1..2", than: "0.4.0"))
+    }
+
+    func testLatestReleaseReply() throws {
+        let reply = Data(#"{"tag_name":"v0.5.0","html_url":"https://github.com/Andy7016/DictBridge-for-Mac/releases/tag/v0.5.0","prerelease":false}"#.utf8)
+        let update = try XCTUnwrap(try UpdateChecker.parse(reply, current: "0.4.1"))
+        XCTAssertEqual(update.version, "0.5.0")
+        XCTAssertEqual(update.page.absoluteString, "https://github.com/Andy7016/DictBridge-for-Mac/releases/tag/v0.5.0")
+        XCTAssertNil(try UpdateChecker.parse(reply, current: "0.5.0"))
+        XCTAssertNil(try UpdateChecker.parse(reply, current: "0.6.0"))
+    }
+
+    func testReplyCannotPointOutsideGitHub() throws {
+        let reply = Data(#"{"tag_name":"v9.0.0","html_url":"https://example.com/download"}"#.utf8)
+        let update = try XCTUnwrap(try UpdateChecker.parse(reply, current: "0.4.1"))
+        XCTAssertEqual(update.page, UpdateChecker.releasesPage)
+    }
+
+    func testUnexpectedReplyIsAnError() {
+        XCTAssertThrowsError(try UpdateChecker.parse(Data(#"{"message":"rate limit"}"#.utf8), current: "0.4.1"))
+        XCTAssertThrowsError(try UpdateChecker.parse(Data("<html>".utf8), current: "0.4.1"))
+    }
+
+    func testBuildStepsAreNamedWithoutTheirDash() {
+        for (marker, _) in DDKToolkit.buildMilestones {
+            XCTAssertTrue(marker.hasPrefix("- "), marker)
+        }
+    }
+}

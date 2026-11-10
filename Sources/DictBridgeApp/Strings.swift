@@ -89,6 +89,47 @@ enum L {
         }
     }
 
+    /// Name of a step of Apple's build tool, as reported in `ConversionProgress.detail`.
+    static func buildStep(_ step: String) -> String {
+        guard zh else { return step.isEmpty ? "Starting" : step }
+        switch step {
+        case "": return "正在启动"
+        case "Checking source": return "检查源文件"
+        case "Preprocessing dictionary sources": return "预处理词条"
+        case "Extracting index data": return "提取索引数据"
+        case "Preparing dictionary bundle": return "准备词典包"
+        case "Adding body data": return "写入词条内容"
+        case "Preparing index data": return "准备索引数据"
+        case "Building key_text index": return "建立检索索引"
+        case "Building reference index": return "建立引用索引"
+        case "Fixing dictionary property": return "写入词典属性"
+        case "Copying other resources": return "复制资源"
+        case "Finished building": return "编译完成"
+        case "Moving other resources": return "移入图片和发音"
+        default: return step
+        }
+    }
+    static func compileStatus(step: String, time: String) -> String {
+        t("Step: \(step) · \(time) in this stage", "当前步骤：\(step) · 本阶段已用 \(time)")
+    }
+    static func elapsed(_ time: String) -> String { t("Elapsed \(time)", "总用时 \(time)") }
+    static var compileHint: String {
+        t("Apple's tool shows no progress within a step. With many entries or resources a single step can take from a few minutes to tens of minutes; as long as the clock is running, it is still working.",
+          "苹果的编译工具在每一步内部不报告进度。词条或资源很多时，一步可能要几分钟到几十分钟；只要计时在走，就说明还在进行。")
+    }
+
+    // Updates
+    static var checkForUpdates: String { t("Check for Updates…", "检查更新…") }
+    static var autoCheckUpdates: String { t("Check for Updates Automatically", "自动检查更新") }
+    static func updateAvailable(_ version: String) -> String {
+        t("DictBridge \(version) is available.", "DictBridge \(version) 已发布。")
+    }
+    static func updateCurrent(_ version: String) -> String { t("You have \(version).", "当前版本 \(version)。") }
+    static var updateDownload: String { t("Open Download Page", "打开下载页") }
+    static var updateLater: String { t("Later", "以后再说") }
+    static var upToDate: String { t("DictBridge is up to date.", "已经是最新版本。") }
+    static var updateCheckFailed: String { t("Could not check for updates", "检查更新失败") }
+
     // DDK
     static var ddkTitle: String { t("One-time setup", "首次使用需要一次性设置") }
     static var ddkBody: String {

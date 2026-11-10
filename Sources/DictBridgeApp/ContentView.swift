@@ -13,6 +13,10 @@ struct ContentView: View {
         VStack(spacing: 0) {
             header
             Divider()
+            if let update = model.update {
+                updateBanner(update)
+                Divider()
+            }
             if let job = model.job {
                 JobView(job: job)
                     .padding(16)
@@ -88,6 +92,27 @@ struct ContentView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
+    }
+
+    private func updateBanner(_ update: AvailableUpdate) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "arrow.down.circle.fill").foregroundStyle(Color.accentColor)
+            Text(L.updateAvailable(update.version))
+            Text(L.updateCurrent(DictBridge.version)).foregroundStyle(.secondary)
+            Spacer()
+            Link(L.updateDownload, destination: update.page)
+            Button {
+                model.dismissUpdate()
+            } label: {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.borderless)
+            .help(L.updateLater)
+        }
+        .font(.callout)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .background(Color.accentColor.opacity(0.08))
     }
 
     private var libraryList: some View {
