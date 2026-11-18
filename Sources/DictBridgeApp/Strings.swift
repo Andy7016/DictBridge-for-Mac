@@ -47,6 +47,13 @@ enum L {
     static var headwordAuto: String { t("When missing", "缺少时自动添加") }
     static var headwordAlways: String { t("Always", "总是") }
     static var headwordNever: String { t("Never", "从不") }
+    static var darkModeLabel: String { t("In Dark Mode", "深色模式下") }
+    static var darkModeAuto: String { t("Use dark colors", "使用深色配色") }
+    static var darkModeLight: String { t("Stay light", "保持浅色") }
+    static var darkModeHint: String {
+        t("Dark colors are worked out from the dictionary's own colors (macOS 14.5 or later; earlier versions stay light). Pictures are not changed.",
+          "深色配色由词典原来的颜色换算而来（需要 macOS 14.5 或更新版本，更早的系统保持浅色）。图片不做处理。")
+    }
     static var convert: String { t("Convert & Install", "转换并安装") }
     static func replaces(_ name: String) -> String {
         t("Replaces the installed “\(name)” (the old version goes to the Trash).",

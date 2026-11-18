@@ -22,10 +22,15 @@ public struct HTMLTransformer {
         /// Mark small click-only elements (buttons, tabs, speaker icons) with `dictbridge-control`
         /// so the look-up popover, where clicks do nothing, can hide them.
         public var markControls: Bool
-        public init(bundleIdentifier: String, headwordMode: HeadwordMode = .auto, markControls: Bool = true) {
+        /// Give colors in `style` attributes, `<font color>` and `bgcolor` a Dark Mode
+        /// counterpart (see `DarkColors`).
+        public var adaptColors: Bool
+        public init(bundleIdentifier: String, headwordMode: HeadwordMode = .auto, markControls: Bool = true,
+                    adaptColors: Bool = false) {
             self.bundleIdentifier = bundleIdentifier
             self.headwordMode = headwordMode
             self.markControls = markControls
+            self.adaptColors = adaptColors
         }
     }
 
@@ -55,6 +60,40 @@ public struct HTMLTransformer {
         xmlInitParser()
         return true
     }()
+
+    // MARK: - Dark Mode
+
+    /// Adds Dark Mode counterparts to the colors an element sets itself. `<font color>` and
+    /// `bgcolor` become `style` declarations in front of the element's own ones (the attribute
+    /// stays for systems that do not understand `light-dark()`).
+    static func adaptColors(in attrs: inout [(String, String)], element: String) {
+        var extra: [String] = []
+        for (key, value) in attrs {
+            let property: String
+            if key == "color" && element == "font" {
+                property = "color"
+            } else if key == "bgcolor" {
+                property = "background-color"
+            } else {
+                continue
+            }
+            var color = value.trimmingCharacters(in: .whitespaces)
+            // Legacy HTML allows hex colors without "#".
+            if (color.count == 6 || color.count == 3), color.allSatisfy(\.isHexDigit),
+               DarkColors.namedColors[color.lowercased()] == nil {
+                color = "#" + color
+            }
+            let declaration = property + ": " + color
+            let adapted = DarkColors.adaptDeclaration(declaration)
+            if adapted != declaration { extra.append(adapted) }
+        }
+        if let i = attrs.firstIndex(where: { $0.0 == "style" }) {
+            let own = DarkColors.adaptDeclarations(attrs[i].1)
+            attrs[i].1 = (extra + [own]).joined(separator: "; ")
+        } else if !extra.isEmpty {
+            attrs.append(("style", extra.joined(separator: "; ")))
+        }
+    }
 
     // MARK: - Public entry point
 
@@ -384,6 +423,7 @@ public struct HTMLTransformer {
                 attrs[i].1 = CSSProcessor.rewriteURLs(in: attrs[i].1)
             }
         }
+        if context.adaptColors { Self.adaptColors(in: &attrs, element: name) }
 
         // Clickable non-link elements: give them a link child so Dictionary.app runs the
         // handler instead of looking up the clicked word.

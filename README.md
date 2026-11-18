@@ -42,6 +42,7 @@ DictBridge 负责格式转换。把 `.mdx` 拖进窗口，它会读出词条、�
   - 重按弹出的查询窗口只显示每部词典的开头几行，而且点不动。DictBridge 会在这个窗口里隐藏按钮、菜单和发音图标，让释义排到最前面。
   - 只使用词条实际引用的样式表，避免词典自带的几套备选样式互相覆盖。
   - 词典脚本只保存一份，所有词条共用，大型词典转换后不会因此变大。
+  - 支持深色模式：词典里写死的颜色会换算出一套深色配色，深色文字变浅、浅色背景变深，色相不变。需要 macOS 14.5 或更新版本，更早的系统上词典保持浅色。也可以在导入时的「高级」里选「保持浅色」。
 - **词典管理**：列出 `~/Library/Dictionaries` 里的所有词典。删除时移到废纸篓，之后还能恢复。
 - **格式支持**：
   - MDict 1.2、2.0 和 3.0
@@ -122,6 +123,7 @@ dictbridge ddk --download                                        # 下载苹果�
 | `--no-audio` | 不包含发音音频 |
 | `--no-chinese-variants` | 不加简繁互查的检索词 |
 | `--headword auto\|always\|never` | 是否在词条顶部补上词头 |
+| `--dark-mode auto\|light` | 深色模式下使用深色配色（默认），或保持浅色 |
 | `--no-install --output <文件夹>` | 只生成 `.dictionary`，不安装 |
 | `--keep-work` | 保留中间文件，方便排查问题（7 天后自动清理） |
 
@@ -145,6 +147,9 @@ DictBridge 会自动启用新词典并重启「词典」App。如果还是没看
 **排版和原来不一样？**
 「词典」App 的显示引擎和 MDict 软件不完全相同，个别样式可能有出入。反馈时请附上出问题的词条截图和 App 里的日志（转换完成后展开「日志」，选中里面的文字复制）。
 
+**深色模式下词典显示不正常？**
+0.5.0 以前转换的词典没有适配深色模式，「词典」App 会给它套上自动反色，常常变成白底浅字，看不清。用新版 DictBridge 重新导入一次就好。如果换算出来的深色配色不理想，可以在导入时的「高级」里选「保持浅色」，欢迎附上截图提 Issue。
+
 **转换失败，或者一直卡住不动？**
 词条很多的词典，「苹果工具编译」这一步会比较久，可以参考上面的用时表。这个阶段会显示当前进行到哪一步和已经用了多久，只要计时在走，就说明还在进行。如果用时明显超出、步骤也一直不变，先点「取消」，再点「复制日志」；转换失败时直接点「复制日志」。然后用[「转换失败或显示异常」模板](../../issues/new/choose)提 Issue，附上日志、词典名称和版本，以及各个文件的大小。
 
@@ -157,6 +162,7 @@ DictBridge 会自动启用新词典并重启「词典」App。如果还是没看
 - `.mdd` 文件要和 `.mdx` 同名（`name.mdd`、`name.1.mdd`……）才会被识别。
 - 样式表只用词条里引用的那几个，外加和词典同名的 `.css`；都没有时，才用 `.mdx` 旁边的 `.css`。词典文件夹里的文件优先于 `.mdd` 里的同名文件，所以想换样式，把改好的 `.css` 放在 `.mdx` 旁边就行。
 - `.spx`（Speex）格式的发音，「词典」App 无法播放。
+- 深色模式下图片保持原样，白底的插图会比较亮，透明背景的深色图标可能看不清。
 - 在重按（或三指轻点）弹出的查询窗口里，每部词典只显示开头几行，点击展开和播放发音都不起作用。这是「词典」App 本身的限制。点窗口里的「更多」，可以在「词典」App 里看完整内容，那里一切正常。
 
 ## 从源码构建
@@ -201,6 +207,7 @@ But it only reads Apple's `.dictionary` bundles, not the MDict dictionaries most
 - Enables new dictionaries in Dictionary automatically and replaces an older version of the same dictionary.
 - Handles Dictionary.app quirks: lost spaces, clickable expanders, playable audio. In the force-click popover, which shows only the start of each entry and ignores clicks, buttons and speaker icons are hidden so the definition comes first. See [docs/how-it-works.md](docs/how-it-works.md).
 - Uses only the style sheets the entries link to, and keeps one shared copy of each script.
+- Dark Mode: colors set by the dictionary get a dark counterpart (dark text turns light, light backgrounds turn dark, hues stay). Needs macOS 14.5 or later; earlier systems show the dictionary light. Choose *Stay light* under Advanced (or `--dark-mode light`) to keep it light everywhere. Dictionaries converted before 0.5.0 need to be converted again.
 - Supports MDict 1.2, 2.0 and 3.0; UTF-8, UTF-16, GBK and Big5 encodings; zlib and LZO compression; encrypted key index (`Encrypted="2"`), and MDict 3.0's encrypted blocks.
 - Checks GitHub for a new release at launch (at most once a day; can be turned off in the DictBridge menu). Nothing is uploaded.
 - Includes a `dictbridge` command-line tool (`DictBridge.app/Contents/Resources/dictbridge`; run `dictbridge help`).
@@ -211,7 +218,7 @@ The first conversion asks to download Apple's Dictionary Development Kit (about 
 
 Requires macOS 13 or later, on Apple silicon or Intel.
 
-**Known limitations.** Dictionaries that need a registration key (`Encrypted="1"`) are read on a best-effort basis. `.mdd` files must share the `.mdx` file's name. Files next to the `.mdx` override same-named files in the `.mdd`. In the popover, clicks (expanders, audio) do nothing; use *More* to open the full entry. `.spx` audio does not play.
+**Known limitations.** Dictionaries that need a registration key (`Encrypted="1"`) are read on a best-effort basis. `.mdd` files must share the `.mdx` file's name. Files next to the `.mdx` override same-named files in the `.mdd`. In the popover, clicks (expanders, audio) do nothing; use *More* to open the full entry. `.spx` audio does not play. Pictures are not adapted to Dark Mode.
 
 **Build.** Run `swift build && swift test`, then `scripts/build-app.sh` to produce `dist/DictBridge.app`.
 

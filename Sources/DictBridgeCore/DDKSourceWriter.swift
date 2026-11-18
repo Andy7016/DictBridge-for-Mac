@@ -88,6 +88,9 @@ enum DictionaryPlist {
             "CFBundleShortVersionString": version,
             "DCSDictionaryCopyright": copyright,
             "DCSDictionaryManufacturerName": "DictBridge",
+            // The style sheet handles Dark Mode itself (see DarkMode); without this key
+            // Dictionary.app puts a lightness-inverting filter over the page.
+            "DCSDictionaryUseSystemAppearance": true,
             "DictBridgeVersion": DictBridge.version,
             "DictBridgeSource": sourceFile,
             "DictBridgeCreated": ISO8601DateFormatter().string(from: Date()),

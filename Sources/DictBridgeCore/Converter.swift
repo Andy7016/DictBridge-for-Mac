@@ -31,6 +31,8 @@ public struct ConversionOptions: Sendable {
     public var headwordMode: HeadwordMode = .auto
     /// Add Simplified/Traditional Chinese counterparts of headwords as search keys.
     public var chineseVariants = true
+    /// How the dictionary looks in Dark Mode.
+    public var darkMode: DarkMode = .auto
     /// Move the result into ~/Library/Dictionaries.
     public var install = true
     /// When not installing: where to put the built `.dictionary`.
@@ -306,7 +308,8 @@ public final class Converter: @unchecked Sendable {
         let writer = try DDKSourceWriter(url: xmlURL)
         let transformer = HTMLTransformer(
             resolver: resolver,
-            context: .init(bundleIdentifier: bundleIdentifier, headwordMode: options.headwordMode))
+            context: .init(bundleIdentifier: bundleIdentifier, headwordMode: options.headwordMode,
+                           adaptColors: options.darkMode == .auto))
 
         writer.writeFrontMatter(body: frontMatter(mdx: mdx, transformer: transformer))
 
@@ -411,13 +414,15 @@ public final class Converter: @unchecked Sendable {
             + (leftOut.isEmpty ? "" : " (not used by any entry: " + leftOut.joined(separator: ", ") + ")"))
         var css = ""
         var seenCSS = Set<String>()
+        let adapt = options.darkMode == .auto
         for (name, text) in stylesheets where chosen.contains(name) && seenCSS.insert(text).inserted {
-            css += "/* \(name) */\n" + CSSProcessor.process(text) + "\n"
+            css += "/* \(name) */\n" + CSSProcessor.process(text, adaptColors: adapt) + "\n"
         }
         for style in inlineStyles where seenCSS.insert(style).inserted {
-            css += CSSProcessor.process(style) + "\n"
+            css += CSSProcessor.process(style, adaptColors: adapt) + "\n"
         }
-        css += CSSProcessor.additions + "\n"
+        css += CSSProcessor.additions(darkMode: options.darkMode) + "\n"
+        log("dark mode: " + (adapt ? "colors adapted" : "always light"))
         try css.write(to: workDir.appendingPathComponent("dict.css"), atomically: true, encoding: .utf8)
 
         let version = mdx.header.attributes["CreationDate"].flatMap { $0.isEmpty ? nil : $0 } ?? "1.0"

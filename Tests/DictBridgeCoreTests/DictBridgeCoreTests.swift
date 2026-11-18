@@ -225,6 +225,12 @@ final class CSSProcessorTests: XCTestCase {
         XCTAssertTrue(out.contains(".A{background:url(img/x.png)}"), out)
     }
 
+    func testUnclosedBlocksAreClosed() {
+        XCTAssertEqual(CSSProcessor.process(".a{color:red} .b{margin:0"), ".a{color:red} .b{margin:0;}")
+        XCTAssertEqual(CSSProcessor.process("@media print{.a{color:red}"), "@media print{.a{color:red}}")
+        XCTAssertEqual(CSSProcessor.process(".a{color:red}"), ".a{color:red}")
+    }
+
     func testFontFaceUrlsAndImportsAndComments() {
         let css = "/* c */@charset \"utf-8\";@import url(other.css);@font-face{font-family:X;src:url('/fonts/a.ttf')}"
         let out = CSSProcessor.process(css)

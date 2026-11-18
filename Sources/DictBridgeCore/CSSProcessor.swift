@@ -8,7 +8,11 @@ import Foundation
 public enum CSSProcessor {
 
     /// Extra rules appended to every converted dictionary.
-    public static let additions = """
+    public static func additions(darkMode: DarkMode) -> String {
+        baseAdditions + "\n" + darkMode.styleAdditions
+    }
+
+    static let baseAdditions = """
 
     /* ---- added by DictBridge ---- */
     a.dictbridge-click { color: inherit; text-decoration: inherit; cursor: pointer; }
@@ -19,9 +23,19 @@ public enum CSSProcessor {
     html.apple_client-panel .dictbridge-control { display: none !important; }
     """
 
-    public static func process(_ css: String) -> String {
+    /// - Parameter adaptColors: give the colors in declarations a Dark Mode counterpart
+    ///   (see `DarkColors`).
+    public static func process(_ css: String, adaptColors: Bool = false) -> String {
         let s = Array(stripComments(css).unicodeScalars)
         var out = String.UnicodeScalarView()
+        // Declarations of the current top-level block, adapted as a whole when it closes.
+        var declarations = String.UnicodeScalarView()
+        func flushDeclarations() {
+            guard !declarations.isEmpty else { return }
+            let text = String(declarations)
+            out.append(contentsOf: (adaptColors ? DarkColors.adaptDeclarations(text) : text).unicodeScalars)
+            declarations = String.UnicodeScalarView()
+        }
         var prelude = String.UnicodeScalarView()
         // true: block contains rules (top level, @media...); false: declarations
         var stack: [Bool] = []
@@ -34,9 +48,9 @@ public enum CSSProcessor {
             let c = s[i]
             i += 1
             if let q = quote {
-                if inRules() { prelude.append(c) } else { out.append(c) }
+                if inRules() { prelude.append(c) } else { declarations.append(c) }
                 if c == "\\" && i < s.count {
-                    if inRules() { prelude.append(s[i]) } else { out.append(s[i]) }
+                    if inRules() { prelude.append(s[i]) } else { declarations.append(s[i]) }
                     i += 1
                 } else if c == q {
                     quote = nil
@@ -45,7 +59,7 @@ public enum CSSProcessor {
             }
             if c == "\"" || c == "'" {
                 quote = c
-                if inRules() { prelude.append(c) } else { out.append(c) }
+                if inRules() { prelude.append(c) } else { declarations.append(c) }
                 continue
             }
             if inRules() {
@@ -80,15 +94,23 @@ public enum CSSProcessor {
                     prelude.append(c)
                 }
             } else {
-                out.append(c)
+                declarations.append(c)
                 if c == "{" {
                     stack.append(false)
                 } else if c == "}" {
                     stack.removeLast()
+                    if inRules() { flushDeclarations() }
                 }
             }
         }
+        flushDeclarations()
         out.append(contentsOf: prelude)
+        // Close blocks the sheet left open, so whatever follows it (the next sheet, DictBridge's
+        // additions) is not swallowed by an unfinished rule.
+        if !stack.isEmpty {
+            if let last = out.last, last != "}" && last != ";" && last != "{" && !stack.last! { out.append(";") }
+            out.append(contentsOf: String(repeating: "}", count: stack.count).unicodeScalars)
+        }
         return rewriteURLs(in: String(out))
     }
 

@@ -49,6 +49,15 @@ struct ImportSheet: View {
                 }
                 .pickerStyle(.menu)
                 .padding(.top, 6)
+                VStack(alignment: .leading, spacing: 4) {
+                    Picker(L.darkModeLabel, selection: $request.darkMode) {
+                        Text(L.darkModeAuto).tag(DarkMode.auto)
+                        Text(L.darkModeLight).tag(DarkMode.light)
+                    }
+                    .pickerStyle(.menu)
+                    Text(L.darkModeHint).font(.caption).foregroundStyle(.secondary)
+                }
+                .padding(.top, 6)
             }
 
             if let old = request.replaces {

@@ -21,6 +21,9 @@ CONVERT OPTIONS
                        add the headword on top of entries that do not show it (default: auto)
   --no-chinese-variants
                        do not add Simplified/Traditional counterparts of Chinese headwords
+  --dark-mode auto|light
+                       auto: adapt the dictionary's colors to Dark Mode (default);
+                       light: always show it in light colors
   --no-install         do not install; save the .dictionary next to the .mdx (or --output)
   --output <folder>    where to save the .dictionary with --no-install
   --keep-work          keep the intermediate build folder (for debugging; removed after 7 days)
@@ -98,6 +101,7 @@ case "convert":
     let name = takeValue("--name")
     let output = takeValue("--output")
     let headword = takeValue("--headword")
+    let darkMode = takeValue("--dark-mode")
     let noAudio = takeFlag("--no-audio")
     let noInstall = takeFlag("--no-install")
     let keepWork = takeFlag("--keep-work")
@@ -116,6 +120,10 @@ case "convert":
     if let headword {
         guard let mode = HeadwordMode(rawValue: headword) else { fail("--headword must be auto, always or never") }
         options.headwordMode = mode
+    }
+    if let darkMode {
+        guard let mode = DarkMode(rawValue: darkMode) else { fail("--dark-mode must be auto or light") }
+        options.darkMode = mode
     }
 
     out("Source:  \(source.mdx.path)")

@@ -11,6 +11,7 @@ struct PendingImport: Identifiable {
     var includeAudio = true
     var headwordMode: HeadwordMode = .auto
     var chineseVariants = true
+    var darkMode: DarkMode = .auto
     /// A dictionary made earlier from the same source (or with the same file name) that the
     /// new one will replace; it goes to the Trash once the new one is installed.
     var replaces: InstalledDictionary?
@@ -205,6 +206,7 @@ final class AppModel: ObservableObject {
         options.includeAudio = request.includeAudio
         options.headwordMode = request.headwordMode
         options.chineseVariants = request.chineseVariants
+        options.darkMode = request.darkMode
         let converter = Converter(source: request.source, options: options, toolkit: toolkit)
         self.converter = converter
         job = ConversionJob(name: options.displayName)

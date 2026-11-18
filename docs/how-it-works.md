@@ -49,6 +49,28 @@
 | `entry://#anchor`, `#anchor` | `scrollIntoView()` on the element with that id. Named anchors `<a name>` become `<span id>`. |
 | CSS type selectors are case-sensitive in XHTML. | `EXAMPLE{…}` becomes `example{…}`, matching the lower-cased tags. |
 | Resource paths like `/img/a.png`, `\img\a.png` or `file://a.png` | Rewritten as bundle-relative `img/a.png`. |
+| A dictionary without `DCSDictionaryUseSystemAppearance` in its `Info.plist` is treated as not Dark Mode aware: Dictionary.app adds `apple_appearance-incompliant` to `<html>` and applies `-apple-color-filter: apple-invert-lightness()` in Dark Mode. On many MDict style sheets this gives a white page with washed-out text ([#3](https://github.com/Andy7016/DictBridge-for-Mac/issues/3)). | Every dictionary declares `DCSDictionaryUseSystemAppearance` and handles Dark Mode in its style sheet (see below). |
+
+## Dark Mode
+
+`--dark-mode auto` (the default) rewrites every color in the dictionary's style sheets, `<style>` blocks, `style` attributes, `<font color>` and `bgcolor`:
+
+```css
+.pos { color: #36363c }
+/* becomes */
+.pos { color: #36363c; color: light-dark(#36363c, #adadb4) }
+```
+
+The original declaration stays first, so a system without `light-dark()` drops the second one. The dark color keeps the hue and mirrors the lightness in Oklab, mapped so that white lands on the Dark Mode page (about `#1e1e1e`) and black on the Dark Mode text (about `#dfdfdf`):
+
+- text colors (`color`, `fill`, `text-decoration-color`…) that are dark become light, at least Oklab L 0.75; light text, often on a colored button, stays;
+- backgrounds lighter than Oklab L 0.7 become dark; darker or strongly colored ones stay, so their light text stays readable;
+- borders and outlines are always mirrored; shadows are left alone;
+- `var()`, `currentColor`, `transparent` and declarations that already use `light-dark()` are left alone.
+
+The appended style sheet sets `:root { color-scheme: light dark }` and `html { color: CanvasText }`, so text without a color of its own follows the system. `light-dark()` needs Safari 17.5 (macOS 14.5); on older systems `@supports not (color: light-dark(#000, #fff))` switches the page to `color-scheme: light only` with a white background, so the dictionary looks as it does in light mode.
+
+`--dark-mode light` skips the rewriting and always uses the light page. Pictures are never changed.
 
 ## Apple's Dictionary Development Kit
 
