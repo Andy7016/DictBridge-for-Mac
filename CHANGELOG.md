@@ -4,6 +4,8 @@
 
 ## [未发布]
 
+## [0.6.0] - 2026-11-18
+
 ### 新增
 
 - 应用内升级：有新版本时弹出窗口显示更新内容，点「安装更新」即可自动下载、安装并重新打开，不用再手动下载 dmg。使用 [Sparkle](https://sparkle-project.org)，更新包和更新列表（`appcast.xml`）都用 EdDSA 签名，签名对不上不会安装。转换进行中不会为了安装更新而重启，等转换结束再装。「自动检查更新」开关保留，以前关掉的仍然是关的。
@@ -97,7 +99,8 @@
 - 命令行工具 `dictbridge`（`convert`、`list`、`remove`、`info`、`ddk`）。
 - GitHub Actions：编译、单元测试、用真实 DDK 端到端转换测试词典、打包 universal `.app` / `.zip` / `.dmg`；发布 Release 时自动附加安装包，带后缀的标签（如 `v1.0.0-beta.1`）标为预发布。
 
-[未发布]: https://github.com/Andy7016/DictBridge-for-Mac/compare/v0.5.0...HEAD
+[未发布]: https://github.com/Andy7016/DictBridge-for-Mac/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/Andy7016/DictBridge-for-Mac/releases/tag/v0.6.0
 [0.5.0]: https://github.com/Andy7016/DictBridge-for-Mac/releases/tag/v0.5.0
 [0.4.1]: https://github.com/Andy7016/DictBridge-for-Mac/releases/tag/v0.4.1
 [0.4.0]: https://github.com/Andy7016/DictBridge-for-Mac/releases/tag/v0.4.0
