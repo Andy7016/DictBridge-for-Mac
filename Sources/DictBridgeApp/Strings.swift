@@ -128,14 +128,6 @@ enum L {
     // Updates
     static var checkForUpdates: String { t("Check for Updates…", "检查更新…") }
     static var autoCheckUpdates: String { t("Check for Updates Automatically", "自动检查更新") }
-    static func updateAvailable(_ version: String) -> String {
-        t("DictBridge \(version) is available.", "DictBridge \(version) 已发布。")
-    }
-    static func updateCurrent(_ version: String) -> String { t("You have \(version).", "当前版本 \(version)。") }
-    static var updateDownload: String { t("Open Download Page", "打开下载页") }
-    static var updateLater: String { t("Later", "以后再说") }
-    static var upToDate: String { t("DictBridge is up to date.", "已经是最新版本。") }
-    static var updateCheckFailed: String { t("Could not check for updates", "检查更新失败") }
 
     // DDK
     static var ddkTitle: String { t("One-time setup", "首次使用需要一次性设置") }

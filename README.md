@@ -64,6 +64,8 @@ DictBridge 负责格式转换。把 `.mdx` 拖进窗口，它会读出词条、�
 
 系统要求：macOS 13 Ventura 或更新版本，Apple 芯片和 Intel 芯片的 Mac 都可以用。
 
+**以后怎么升级**：0.6.0 起可以在软件里直接升级。有新版本时会弹出窗口显示更新内容，点「安装更新」就会自动下载、安装并重新打开，也可以随时用菜单「DictBridge → 检查更新…」。更新包都带有数字签名，签名对不上不会安装。0.5.0 及更早的版本需要手动下载一次新版。
+
 ## 使用
 
 1. 打开 DictBridge，把 `.mdx` 文件（或包含它的文件夹）拖进窗口，也可以点「添加词典…」选择文件。
@@ -154,7 +156,7 @@ DictBridge 会自动启用新词典并重启「词典」App。如果还是没看
 词条很多的词典，「苹果工具编译」这一步会比较久，可以参考上面的用时表。这个阶段会显示当前进行到哪一步和已经用了多久，只要计时在走，就说明还在进行。如果用时明显超出、步骤也一直不变，先点「取消」，再点「复制日志」；转换失败时直接点「复制日志」。然后用[「转换失败或显示异常」模板](../../issues/new/choose)提 Issue，附上日志、词典名称和版本，以及各个文件的大小。
 
 **DictBridge 会联网吗？**
-只有两种情况：第一次转换前下载苹果的词典开发工具；启动时查看 GitHub 上有没有新版本（每天最多一次，可以在菜单「DictBridge → 自动检查更新」里关掉）。两者都不上传任何信息，词典内容只在本机处理。
+只有两种情况：第一次转换前下载苹果的词典开发工具；每天查看一次 GitHub 上有没有新版本（可以在菜单「DictBridge → 自动检查更新」里关掉），有更新并且你同意安装时才下载。都不上传任何信息，词典内容只在本机处理。
 
 ## 已知限制
 
@@ -183,7 +185,7 @@ scripts/compat-test.sh ~/词典库     # 把文件夹里的词典逐个转换（
 | `Sources/dictbridge` | 命令行工具 |
 | `scripts/make_fixtures.py` | 生成测试用的小型合成词典（不包含任何第三方词典内容） |
 
-每次推送都会由 GitHub Actions 自动编译、运行测试，并用苹果的工具实际转换一部测试词典。在 GitHub 上发布 Release 后，打包好的 `.dmg` 和 `.zip` 会自动附加到这个 Release 上。
+每次推送都会由 GitHub Actions 自动编译、运行测试，并用苹果的工具实际转换一部测试词典。在 GitHub 上发布 Release 后，打包好的 `.dmg` 和 `.zip` 会自动附加到这个 Release 上，同时生成应用内升级用的 `appcast.xml`。发版和更新签名密钥的设置见 [docs/releasing.md](docs/releasing.md)。
 
 欢迎提交 Issue 和 PR，尤其欢迎反馈某部词典转换后显示不正常的问题。反馈时请附上词典名称、出问题的词条截图和 App 里的日志，最好能提供词典文件。
 
@@ -209,7 +211,7 @@ But it only reads Apple's `.dictionary` bundles, not the MDict dictionaries most
 - Uses only the style sheets the entries link to, and keeps one shared copy of each script.
 - Dark Mode: colors set by the dictionary get a dark counterpart (dark text turns light, light backgrounds turn dark, hues stay). Needs macOS 14.5 or later; earlier systems show the dictionary light. Choose *Stay light* under Advanced (or `--dark-mode light`) to keep it light everywhere. Dictionaries converted before 0.5.0 need to be converted again.
 - Supports MDict 1.2, 2.0 and 3.0; UTF-8, UTF-16, GBK and Big5 encodings; zlib and LZO compression; encrypted key index (`Encrypted="2"`), and MDict 3.0's encrypted blocks.
-- Checks GitHub for a new release at launch (at most once a day; can be turned off in the DictBridge menu). Nothing is uploaded.
+- Updates itself from 0.6.0 on (Sparkle): a new release is offered once a day (can be turned off in the DictBridge menu) and installed in place. Updates are EdDSA-signed and nothing is uploaded.
 - Includes a `dictbridge` command-line tool (`DictBridge.app/Contents/Resources/dictbridge`; run `dictbridge help`).
 
 **Install.** Download the `.dmg` from [Releases](../../releases/latest). The app is not notarized yet, so on first launch go to System Settings → Privacy & Security → *Open Anyway*, or run `xattr -dr com.apple.quarantine /Applications/DictBridge.app`.

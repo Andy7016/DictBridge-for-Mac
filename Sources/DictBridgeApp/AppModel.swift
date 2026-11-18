@@ -51,9 +51,6 @@ final class AppModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var removeCandidate: InstalledDictionary?
     @Published var dropTargeted = false
-    /// A newer release, shown as a banner until dismissed.
-    @Published var update: AvailableUpdate?
-    @Published var checkingForUpdates = false
 
     private var converter: Converter?
     /// The running conversion, so that quitting can wait for it to stop and clean up.
@@ -66,69 +63,7 @@ final class AppModel: ObservableObject {
         refresh()
         // Build folders of conversions that never finished (force quit, crash).
         Task.detached(priority: .utility) { WorkDirectory.removeLeftovers() }
-        checkForUpdatesAutomatically()
     }
-
-    // MARK: Updates
-
-    private static let autoCheckKey = "autoCheckUpdates"
-    private static let lastCheckKey = "lastUpdateCheck"
-
-    /// Whether to look for a new version at launch (at most once a day). On unless turned off.
-    var autoCheckUpdates: Bool {
-        get { UserDefaults.standard.object(forKey: Self.autoCheckKey) as? Bool ?? true }
-        set {
-            objectWillChange.send()
-            UserDefaults.standard.set(newValue, forKey: Self.autoCheckKey)
-        }
-    }
-
-    private func checkForUpdatesAutomatically() {
-        guard autoCheckUpdates else { return }
-        let last = UserDefaults.standard.double(forKey: Self.lastCheckKey)
-        guard Date().timeIntervalSince1970 - last > 24 * 3600 else { return }
-        Task {
-            // Quiet on failure (offline, rate limit): the next launch tries again.
-            do {
-                let result = try await UpdateChecker.check()
-                UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastCheckKey)
-                update = result
-            } catch {}
-        }
-    }
-
-    /// "Check for Updates…" in the menu: always answers, with a dialog.
-    func checkForUpdates() {
-        guard !checkingForUpdates else { return }
-        checkingForUpdates = true
-        Task {
-            defer { checkingForUpdates = false }
-            let alert = NSAlert()
-            do {
-                let result = try await UpdateChecker.check()
-                UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastCheckKey)
-                update = result
-                if let result {
-                    alert.messageText = L.updateAvailable(result.version)
-                    alert.informativeText = L.updateCurrent(DictBridge.version)
-                    alert.addButton(withTitle: L.updateDownload)
-                    alert.addButton(withTitle: L.updateLater).keyEquivalent = "\u{1b}"
-                    if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(result.page) }
-                } else {
-                    alert.messageText = L.upToDate
-                    alert.informativeText = L.updateCurrent(DictBridge.version)
-                    alert.runModal()
-                }
-            } catch {
-                alert.alertStyle = .warning
-                alert.messageText = L.updateCheckFailed
-                alert.informativeText = error.localizedDescription
-                alert.runModal()
-            }
-        }
-    }
-
-    func dismissUpdate() { update = nil }
 
     // MARK: Library
 
@@ -262,6 +197,7 @@ final class AppModel: ObservableObject {
                 self.converter = nil
                 self.conversionTask = nil
                 self.refresh()
+                AppUpdater.shared.conversionDidEnd()
                 // The window was closed during the conversion: quit now, as closing it would have.
                 if !NSApp.isHidden && !NSApp.windows.contains(where: { $0.isVisible || $0.isMiniaturized }) {
                     NSApp.terminate(nil)

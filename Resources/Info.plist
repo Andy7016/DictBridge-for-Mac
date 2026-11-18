@@ -35,6 +35,20 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Andy7016 · MIT License</string>
+	<!-- In-app updates (Sparkle). build-app.sh fills in the public key, or removes the key when
+	     Resources/sparkle-public-key.txt is missing, which turns updates off. -->
+	<key>SUFeedURL</key>
+	<string>https://github.com/Andy7016/DictBridge-for-Mac/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>__SPARKLE_PUBLIC_KEY__</string>
+	<key>SURequireSignedFeed</key>
+	<true/>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

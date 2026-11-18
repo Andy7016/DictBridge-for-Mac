@@ -75,10 +75,36 @@ jobs:
         run: |
           # Release builds take their version from the tag (v0.2.0 -> 0.2.0).
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then export VERSION="${GITHUB_REF_NAME#v}"; fi
+          # Published releases must carry the update key, or in-app updates would be off in them.
+          if [[ "$GITHUB_EVENT_NAME" == release ]]; then export REQUIRE_UPDATE_KEY=1; fi
           scripts/build-app.sh
+
+      - name: Sign the update and write appcast.xml
+        if: github.event_name == 'release'
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/make-appcast.sh
 
       - name: Smoke-test the packaged CLI
         run: dist/DictBridge.app/Contents/Resources/dictbridge --version
+
+      - name: Launch the packaged app
+        run: |
+          # A wrong rpath or an unsigned Sparkle part makes the app die at launch.
+          test -d dist/DictBridge.app/Contents/Frameworks/Sparkle.framework
+          otool -L dist/DictBridge.app/Contents/MacOS/DictBridge | grep Sparkle
+          plutil -p dist/DictBridge.app/Contents/Info.plist | grep -E '"SU' || true
+          dist/DictBridge.app/Contents/MacOS/DictBridge > "$RUNNER_TEMP/app.log" 2>&1 &
+          pid=$!
+          sleep 10
+          if ! kill -0 "$pid" 2>/dev/null; then
+            cat "$RUNNER_TEMP/app.log"
+            echo "::error title=Launch::DictBridge.app exited right after launch"
+            exit 1
+          fi
+          kill "$pid"
+          echo "::notice title=Launch::DictBridge.app is running with Sparkle"
 
       - uses: actions/upload-artifact@v7
         with:
@@ -87,12 +113,14 @@ jobs:
             dist/*.zip
             dist/*.dmg
 
+      # Only the run for the published release attaches files: the tag push that comes with it
+      # builds its own .zip, which would replace the one the appcast's signature is for.
       - name: Attach to release
-        if: github.event_name == 'release' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v3
         with:
           files: |
             dist/*.zip
             dist/*.dmg
-          generate_release_notes: ${{ github.event_name != 'release' }}
+            dist/appcast.xml
           prerelease: ${{ contains(github.ref_name, '-') }}

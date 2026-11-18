@@ -6,6 +6,7 @@ import SwiftUI
 struct DictBridgeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var model = AppModel()
+    @StateObject private var updater = AppUpdater.shared
 
     var body: some Scene {
         WindowGroup("DictBridge") {
@@ -20,10 +21,11 @@ struct DictBridgeApp: App {
                     .keyboardShortcut("o")
             }
             CommandGroup(after: .appInfo) {
-                Button(L.checkForUpdates) { model.checkForUpdates() }
-                    .disabled(model.checkingForUpdates)
-                Toggle(L.autoCheckUpdates, isOn: Binding(get: { model.autoCheckUpdates },
-                                                         set: { model.autoCheckUpdates = $0 }))
+                Button(L.checkForUpdates) { updater.checkForUpdates() }
+                    .disabled(!updater.canCheckForUpdates)
+                Toggle(L.autoCheckUpdates, isOn: Binding(get: { updater.automaticallyChecksForUpdates },
+                                                         set: { updater.automaticallyChecksForUpdates = $0 }))
+                    .disabled(!updater.isAvailable)
             }
             CommandGroup(after: .help) {
                 Link("DictBridge on GitHub", destination: URL(string: "https://github.com/Andy7016/DictBridge-for-Mac")!)

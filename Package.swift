@@ -12,12 +12,19 @@ let package = Package(
         .library(name: "DictBridgeCore", targets: ["DictBridgeCore"]),
         .library(name: "MDictKit", targets: ["MDictKit"]),
     ],
+    dependencies: [
+        // In-app updates. Pinned: CI downloads the same version's `sign_update` tool.
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1"),
+    ],
     targets: [
         // Pure-Swift reader for MDict .mdx / .mdd files.
         .target(name: "MDictKit"),
         // Conversion pipeline, Apple Dictionary Development Kit driver and dictionary library.
         .target(name: "DictBridgeCore", dependencies: ["MDictKit"]),
-        .executableTarget(name: "DictBridgeApp", dependencies: ["DictBridgeCore"]),
+        .executableTarget(
+            name: "DictBridgeApp",
+            dependencies: ["DictBridgeCore", .product(name: "Sparkle", package: "Sparkle")]
+        ),
         .executableTarget(name: "dictbridge", dependencies: ["DictBridgeCore"]),
         .testTarget(
             name: "MDictKitTests",
