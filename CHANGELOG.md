@@ -4,6 +4,8 @@
 
 ## [未发布]
 
+## [0.5.0] - 2026-11-18
+
 ### 新增
 
 - 支持深色模式（[#3](https://github.com/Andy7016/DictBridge-for-Mac/issues/3)）。以前转换的词典在深色模式下会被「词典」App 自动反色，常常变成白底浅字，看不清。现在词典会声明自己支持系统外观，转换时把样式表、`<style>`、`style` 属性、`<font color>` 和 `bgcolor` 里的颜色都换算出一套深色配色（`light-dark()`）：深色文字变浅，浅色背景变深，色相不变，边框跟着调整。需要 macOS 14.5 或更新版本，更早的系统上词典显示为浅色。导入时的「高级」里可以选「保持浅色」，命令行是 `--dark-mode light`。已经安装的词典需要重新导入才会生效。
@@ -91,7 +93,8 @@
 - 命令行工具 `dictbridge`（`convert`、`list`、`remove`、`info`、`ddk`）。
 - GitHub Actions：编译、单元测试、用真实 DDK 端到端转换测试词典、打包 universal `.app` / `.zip` / `.dmg`；发布 Release 时自动附加安装包，带后缀的标签（如 `v1.0.0-beta.1`）标为预发布。
 
-[未发布]: https://github.com/Andy7016/DictBridge-for-Mac/compare/v0.4.1...HEAD
+[未发布]: https://github.com/Andy7016/DictBridge-for-Mac/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/Andy7016/DictBridge-for-Mac/releases/tag/v0.5.0
 [0.4.1]: https://github.com/Andy7016/DictBridge-for-Mac/releases/tag/v0.4.1
 [0.4.0]: https://github.com/Andy7016/DictBridge-for-Mac/releases/tag/v0.4.0
 [0.3.0]: https://github.com/Andy7016/DictBridge-for-Mac/releases/tag/v0.3.0
