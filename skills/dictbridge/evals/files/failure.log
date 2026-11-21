@@ -1,0 +1,7 @@
+DictBridge 0.6.0
+Error: conversion failed
+token=gho_FAKE_TOKEN
+Authorization: Bearer secret-value
+/Users/example/Library/Caches/DictBridge/build-1/dict.xml
+Contact: user@example.com
+Download: https://example.com/private-dictionary.zip

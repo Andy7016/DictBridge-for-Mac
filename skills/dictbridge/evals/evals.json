@@ -1,0 +1,43 @@
+{
+  "skill_name": "dictbridge",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Use the dictbridge skill to inspect and convert the repository's synthetic fixture Tests/MDictKitTests/Fixtures/basic.mdx into ./output without installing it.",
+      "expected_output": "The agent runs the environment doctor and dictbridge info, then converts with --no-install --output. It reports the generated bundle path and does not modify the source fixture or install a dictionary.",
+      "files": [
+        "Tests/MDictKitTests/Fixtures/basic.mdx",
+        "Tests/MDictKitTests/Fixtures/basic.mdd"
+      ],
+      "assertions": [
+        "The agent uses the DictBridge CLI rather than reimplementing conversion.",
+        "The conversion uses --no-install and an explicit output directory.",
+        "The source fixture remains unchanged.",
+        "The final response identifies the generated .dictionary bundle or explains a missing prerequisite."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Use the dictbridge skill to check whether this Mac is ready to convert an MDX dictionary. If the Dictionary Development Kit is missing, explain the next command but do not run it.",
+      "expected_output": "The agent runs scripts/doctor.sh, recognizes a missing DDK, explains that dictbridge ddk --download is network-enabled and state-changing, and waits for approval.",
+      "assertions": [
+        "The agent runs the doctor script or equivalent read-only checks.",
+        "The agent does not download or install the DDK without approval.",
+        "The agent clearly names the approval-gated command."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Use the dictbridge skill to turn this failed conversion log into a sanitized issue report: evals/files/failure.log. Do not include dictionary content or download links.",
+      "expected_output": "The agent runs scripts/make-report.sh and produces a Markdown report matching the repository issue template, with tokens, personal paths, email addresses, and URLs redacted.",
+      "files": [
+        "skills/dictbridge/evals/files/failure.log"
+      ],
+      "assertions": [
+        "The output is a Markdown issue report.",
+        "The report contains no raw token, email address, personal home path, or dictionary download URL.",
+        "The report tells the user to review it before submission."
+      ]
+    }
+  ]
+}
