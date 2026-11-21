@@ -131,6 +131,12 @@ dictbridge ddk --download                                        # 下载苹果�
 
 运行 `dictbridge help` 查看全部选项。
 
+### Agent Skill
+
+仓库内置一个可选的 [DictBridge Agent Skill](skills/dictbridge/SKILL.md)，供兼容 Agent Skills 的 Claude Code、Codex 等工具调用。它使用现有 `dictbridge` CLI 完成环境检查、词典诊断、转换、验证和脱敏 Issue 报告，不重新实现转换逻辑。
+
+将 `skills/dictbridge` 安装到你的 Agent 的 skills 目录即可。辅助脚本需要 macOS 13+、DictBridge CLI 和 `python3`。安装、删除或下载 DDK 等写操作必须由用户明确确认；Skill 不会上传词典内容。
+
 ## 常见问题
 
 **转换完了，在「词典」里看不到新词典？**
@@ -213,6 +219,8 @@ But it only reads Apple's `.dictionary` bundles, not the MDict dictionaries most
 - Supports MDict 1.2, 2.0 and 3.0; UTF-8, UTF-16, GBK and Big5 encodings; zlib and LZO compression; encrypted key index (`Encrypted="2"`), and MDict 3.0's encrypted blocks.
 - Updates itself from 0.6.0 on (Sparkle): a new release is offered once a day (can be turned off in the DictBridge menu) and installed in place. Updates are EdDSA-signed and nothing is uploaded.
 - Includes a `dictbridge` command-line tool (`DictBridge.app/Contents/Resources/dictbridge`; run `dictbridge help`).
+
+**Agent Skill.** The repository includes an optional [DictBridge Agent Skill](skills/dictbridge/SKILL.md) for compatible Claude Code, Codex, and other Agent Skills clients. It uses the existing CLI for environment checks, diagnostics, conversion, verification, and sanitized issue reports. Install `skills/dictbridge` into your agent's skills directory. Helper scripts require macOS 13+, the DictBridge CLI, and `python3`. State-changing actions require explicit user approval, and dictionary content is never uploaded.
 
 **Install.** Download the `.dmg` from [Releases](../../releases/latest). The app is not notarized yet, so on first launch go to System Settings → Privacy & Security → *Open Anyway*, or run `xattr -dr com.apple.quarantine /Applications/DictBridge.app`.
 
